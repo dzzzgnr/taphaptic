@@ -11,7 +11,6 @@ Target duration on a known-good machine: **under 15 minutes**.
 - Mac and watch on the same local network.
 - Repo is up to date and you are testing the exact commit planned for release.
 - `./scripts/doctor.sh` passes.
-- If testing an unreleased branch, set `TAPHAPTIC_DEV_MODE=1` and make sure Go is installed.
 
 ## Validation Steps
 
@@ -113,7 +112,6 @@ Copy and paste into release PR notes:
 - Machine:
 - watchOS version:
 - iOS version:
-- `TAPHAPTIC_DEV_MODE` value:
 
 ### Checklist
 - [ ] Preconditions passed
