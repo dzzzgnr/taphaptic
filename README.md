@@ -12,8 +12,6 @@ Taphaptic sends Claude Code task status to Apple Watch using a local API running
 
 - macOS with Xcode (Apple Watch deployment enabled)
 - Go 1.22+
-- `curl`
-- `python3`
 - Physical Apple Watch paired to iPhone
 
 ## Physical Watch Quickstart
