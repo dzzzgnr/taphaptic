@@ -7,7 +7,7 @@ struct TaphapticWatchEventPolicyConfig: Equatable {
 
     static let defaults = TaphapticWatchEventPolicyConfig(
         completedAnimationSeconds: 1.25,
-        transientDisplayWindowSeconds: 10,
+        transientDisplayWindowSeconds: 3,
         staleEventMaxAgeSeconds: 20
     )
 }
