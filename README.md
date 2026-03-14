@@ -2,82 +2,64 @@
 
 Taphaptic sends Claude Code task status to Apple Watch using a local API running on your Mac.
 
-## Prerequisites
-
-- Go 1.22+ (required to build the local API from source)
-- Xcode + watchOS simulator runtime
-
 ## What this repo contains
 
 - watchOS app (watch-only)
 - local Go API for pairing + event ingestion
 - Claude hook installer
 
-## Prerequisites (manual)
+## Requirements
 
-- macOS with Xcode and watchOS runtime
+- macOS with Xcode (Apple Watch deployment enabled)
 - Go 1.22+
-- Physical Apple Watch paired to iPhone (for device deployment)
+- `curl`
+- `python3`
+- Physical Apple Watch paired to iPhone
 
-## First-time setup (physical watch)
+## Physical Watch Quickstart
 
-```sh
-git clone https://github.com/dzzzgnr/taphaptic.git && cd taphaptic && ./scripts/bootstrap-watch.sh
-```
-
-`./scripts/bootstrap-watch.sh` will:
-
-1. Run preflight checks (`doctor`).
-2. Start local API.
-3. Install Claude hooks and print a 4-digit watch pairing code.
-4. Open `Taphaptic.xcodeproj`.
-
-Then complete these manual steps:
-
-1. In Xcode, select scheme `Taphaptic` and your physical Apple Watch destination.
-2. Press Run to install the app.
-3. Open Taphaptic on Apple Watch and enter the **4-digit** code.
-
-## Daily run
-
-1. Start local API:
+1. Clone the repo:
 
 ```sh
-./scripts/start-api.sh
+git clone https://github.com/dzzzgnr/taphaptic.git && cd taphaptic
 ```
 
-2. Start a new Claude session (so hooks are loaded).
+2. Build the local API:
+
+```sh
+./scripts/build-taphaptic-api.sh
+```
+
+3. Run the API on your Mac (keep this terminal open):
+
+```sh
+./bin/taphaptic-api
+```
+
+4. In another terminal, install Claude hooks and generate a pairing code:
+
+```sh
+./scripts/install-claude-hook.sh
+```
+
+5. Open `Taphaptic.xcodeproj` in Xcode, select scheme `Taphaptic`, choose your physical Apple Watch destination, and press Run.
+
+6. Open Taphaptic on Apple Watch and enter the **4-digit** code from step 4.
+
+## Daily Run
+
+1. Start the API:
+
+```sh
+./bin/taphaptic-api
+```
+
+2. Start a new Claude session.
 
 3. Optional verification event:
 
 ```sh
 ./scripts/test-claude-connection.sh stop
-```
-
-4. Optional cleanup:
-
-```sh
-./scripts/stop-api.sh
-```
-
-## Simulator flow (optional)
-
-Build for watch simulator:
-
-```sh
-./scripts/build-watch-app.sh
-```
-
-Run on one simulator:
-
-```sh
-./scripts/run-watch-sim.sh
-```
-
-Update all booted watch simulators:
-
-```sh
-./scripts/run-watch-sims.sh
 ```
 
 ## How pairing works
@@ -116,10 +98,9 @@ Run API smoke e2e (installation -> pairing -> claim -> event -> poll):
 ./scripts/smoke-local-e2e.sh
 ```
 
-Run Apple/watch checks:
+Run shared Swift regression tests:
 
 ```sh
-./scripts/build-watch-app.sh
 ./scripts/test-shared-swift.sh
 ```
 
