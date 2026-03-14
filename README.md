@@ -13,12 +13,6 @@ Taphaptic sends Claude Code task status to Apple Watch using a local API running
 - local Go API for pairing + event ingestion
 - Claude hook installer
 
-Out of scope in v1:
-
-- hosted/cloud relay flow
-- iPhone companion flow
-- legacy macOS token service
-
 ## Local-only flow (same Wi-Fi)
 
 1. Build the local API:
