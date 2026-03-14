@@ -33,7 +33,27 @@ jobs:
         run: go build -o ./bin/taphaptic-api ./cmd/taphaptic-api
 
       - name: Run Local E2E Smoke
+        env:
+          TAPHAPTIC_DEV_MODE: "1"
         run: ./scripts/smoke-local-e2e.sh
+
+      - name: Verify Script Flow (Prebuilt Binaries, No Go in PATH)
+        run: |
+          set -eu
+          prebuilt_dir="$(mktemp -d)"
+          go build -o "$prebuilt_dir/taphapticctl" ./cmd/taphapticctl
+          go build -o "$prebuilt_dir/taphaptic-api" ./cmd/taphaptic-api
+
+          rm -f ./bin/taphapticctl ./bin/taphaptic-api
+
+          export PATH="/usr/bin:/bin"
+          export TAPHAPTICCTL_DOWNLOAD_URL="file://$prebuilt_dir/taphapticctl"
+          export TAPHAPTIC_API_DOWNLOAD_URL="file://$prebuilt_dir/taphaptic-api"
+
+          ./scripts/start-api.sh
+          ./scripts/install-claude-hook.sh
+          ./scripts/test-claude-connection.sh stop
+          ./scripts/stop-api.sh
 
   apple-build:
     name: Apple (Watch Build + Swift Tests)

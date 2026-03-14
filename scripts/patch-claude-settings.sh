@@ -44,21 +44,12 @@ case "$scope" in
     ;;
 esac
 
-if ! command -v go >/dev/null 2>&1; then
-  printf '%s\n' "go is required. Install Go 1.22+ from https://go.dev/dl/" >&2
-  exit 127
-fi
-
-mkdir -p "$repo_root/bin"
-(
-  cd "$repo_root"
-  go build -o "$repo_root/bin/taphapticctl" ./cmd/taphapticctl
-)
+ctl_path="$("$repo_root/scripts/ensure-binary.sh" taphapticctl)"
 
 cd "$repo_root"
 
 if [ "$with_notifications" = "1" ]; then
-  exec "$repo_root/bin/taphapticctl" patch-settings --scope "$scope" --with-notifications
+  exec "$ctl_path" patch-settings --scope "$scope" --with-notifications
 fi
 
-exec "$repo_root/bin/taphapticctl" patch-settings --scope "$scope"
+exec "$ctl_path" patch-settings --scope "$scope"

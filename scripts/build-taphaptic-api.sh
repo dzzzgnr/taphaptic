@@ -3,8 +3,6 @@
 set -eu
 
 repo_root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+api_path="$("$repo_root/scripts/ensure-binary.sh" taphaptic-api)"
 
-mkdir -p "$repo_root/bin"
-go build -o "$repo_root/bin/taphaptic-api" ./cmd/taphaptic-api
-
-printf '%s\n' "Built $repo_root/bin/taphaptic-api"
+printf '%s\n' "Prepared $api_path"
