@@ -43,12 +43,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install XcodeGen
-        run: |
-          if ! command -v xcodegen >/dev/null 2>&1; then
-            brew install xcodegen
-          fi
-
       - name: Build Watch App (Simulator)
         run: ./scripts/build-watch-app.sh
 
