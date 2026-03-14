@@ -119,7 +119,7 @@ final class TaphapticModel: ObservableObject {
     private let decoder: JSONDecoder
     private let speechSynthesizer = AVSpeechSynthesizer()
     private let completedAnimationSeconds: TimeInterval = 1.25
-    private let transientDisplayWindowSeconds: TimeInterval = 10
+    private let transientDisplayWindowSeconds: TimeInterval = 3
     private let staleEventMaxAgeSeconds: TimeInterval = 20
     private let terminalRecentActivityWindowSeconds: TimeInterval = 10 * 60
     private let completionTitles = [
