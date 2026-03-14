@@ -16,6 +16,44 @@ release_repo="${TAPHAPTIC_RELEASE_REPO:-dzzzgnr/taphaptic}"
 release_tag="${TAPHAPTIC_RELEASE_TAG:-}"
 dev_mode="${TAPHAPTIC_DEV_MODE:-0}"
 
+verify_downloaded_macos_binary() {
+  binary_path="$1"
+
+  case "$(uname -s)" in
+    Darwin)
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+
+  if [ "${TAPHAPTIC_VERIFY_SIGNED_BINARIES:-1}" = "0" ]; then
+    return 0
+  fi
+
+  if ! command -v codesign >/dev/null 2>&1; then
+    printf '%s\n' "codesign is required to verify downloaded binaries on macOS." >&2
+    return 67
+  fi
+
+  if ! command -v spctl >/dev/null 2>&1; then
+    printf '%s\n' "spctl is required to verify downloaded binaries on macOS." >&2
+    return 67
+  fi
+
+  if ! codesign --verify --strict --verbose=2 "$binary_path" >/dev/null 2>&1; then
+    printf '%s\n' "codesign verification failed for $binary_path" >&2
+    codesign --verify --strict --verbose=2 "$binary_path" >&2 || true
+    return 68
+  fi
+
+  if ! spctl --assess --type execute --verbose=4 "$binary_path" >/dev/null 2>&1; then
+    printf '%s\n' "spctl assessment failed for $binary_path" >&2
+    spctl --assess --type execute --verbose=4 "$binary_path" >&2 || true
+    return 68
+  fi
+}
+
 case "$tool" in
   taphapticctl)
     destination="$bin_dir/taphapticctl"
@@ -115,6 +153,10 @@ if [ -n "$download_url" ]; then
       chmod 755 "$tmp_file"
       mv "$tmp_file" "$destination"
       trap - EXIT HUP INT TERM
+      if ! verify_downloaded_macos_binary "$destination"; then
+        rm -f "$destination"
+        exit 68
+      fi
       printf '%s\n' "Prepared $tool from prebuilt release asset ($download_url)." >&2
       printf '%s\n' "$destination"
       exit 0
