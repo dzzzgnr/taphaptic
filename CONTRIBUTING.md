@@ -4,7 +4,6 @@
 
 - Go 1.22+
 - Xcode + watchOS simulator runtime
-- `xcodegen`
 
 ## Local development
 
