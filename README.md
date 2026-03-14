@@ -14,29 +14,76 @@ Out of scope in v1:
 - iPhone companion flow
 - legacy macOS token service
 
-## Local-only flow (same Wi-Fi)
+## Prerequisites (manual)
 
-1. Build the local API:
+- macOS with Xcode and watchOS runtime
+- Go 1.22+
+- `xcodegen` (`brew install xcodegen`)
+- `curl`
+- `python3`
+- Physical Apple Watch paired to iPhone (for device deployment)
 
-```sh
-./scripts/build-taphaptic-api.sh
-```
-
-2. Run the API on your Mac:
-
-```sh
-./bin/taphaptic-api
-```
-
-3. Install Claude hooks and print a one-time pairing code:
+## First-time setup (physical watch)
 
 ```sh
-./scripts/install-claude-hook.sh
+git clone <repo-url> && cd taphaptic && ./scripts/bootstrap-watch.sh
 ```
 
-4. Open Taphaptic on Apple Watch.
+`./scripts/bootstrap-watch.sh` will:
 
-5. Wait for auto-discovery (Bonjour/mDNS) and enter the **4-digit** code.
+1. Run preflight checks (`doctor`).
+2. Generate Xcode project files.
+3. Start local API.
+4. Install Claude hooks and print a 4-digit watch pairing code.
+5. Open `Taphaptic.xcodeproj`.
+
+Then complete these manual steps:
+
+1. In Xcode, select scheme `Taphaptic` and your physical Apple Watch destination.
+2. Press Run to install the app.
+3. Open Taphaptic on Apple Watch and enter the **4-digit** code.
+
+## Daily run
+
+1. Start local API:
+
+```sh
+./scripts/start-api.sh
+```
+
+2. Start a new Claude session (so hooks are loaded).
+
+3. Optional verification event:
+
+```sh
+./scripts/test-claude-connection.sh stop
+```
+
+4. Optional cleanup:
+
+```sh
+./scripts/stop-api.sh
+```
+
+## Simulator flow (optional)
+
+Build for watch simulator:
+
+```sh
+./scripts/build-watch-app.sh
+```
+
+Run on one simulator:
+
+```sh
+./scripts/run-watch-sim.sh
+```
+
+Update all booted watch simulators:
+
+```sh
+./scripts/run-watch-sims.sh
+```
 
 ## How pairing works
 
@@ -59,26 +106,6 @@ Authenticated routes:
 - `POST /v1/watch/pairings/code` (installation token)
 - `POST /v1/events` (claude session token)
 - `GET /v1/events?since=<id>` (watch session token)
-
-## Watch app build
-
-Build:
-
-```sh
-./scripts/build-watch-app.sh
-```
-
-Run on simulator:
-
-```sh
-./scripts/run-watch-sim.sh
-```
-
-Update all booted watch simulators:
-
-```sh
-./scripts/run-watch-sims.sh
-```
 
 ## CI checks (local equivalent)
 
