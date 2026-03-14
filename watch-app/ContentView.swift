@@ -172,7 +172,10 @@ struct ContentView: View {
             return ("Pairing...", .gray)
         case let .failed(message):
             let lowercased = message.lowercased()
-            if lowercased.contains("expired") {
+            if lowercased.contains("session expired") {
+                return ("Session expired", .red)
+            }
+            if lowercased.contains("code expired") || lowercased.contains("expired code") {
                 return ("Code expired", .red)
             }
             if lowercased.contains("invalid") {

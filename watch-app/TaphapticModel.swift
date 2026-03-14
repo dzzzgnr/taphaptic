@@ -458,6 +458,7 @@ final class TaphapticModel: ObservableObject {
         guard let sessionToken = watchSessionToken, let baseURL = cloudBaseURL else {
             return
         }
+        let requestedSessionToken = sessionToken
 
         do {
             var eventsURL = baseURL.appendingPathComponent("v1/events")
@@ -470,8 +471,14 @@ final class TaphapticModel: ObservableObject {
 
             let response: TaphapticEventsResponse = try await fetchEvents(
                 url: eventsURL,
-                bearerToken: sessionToken
+                bearerToken: requestedSessionToken
             )
+            guard TaphapticSessionPollGuard.shouldApplyResponse(
+                requestedSessionToken: requestedSessionToken,
+                currentSessionToken: watchSessionToken
+            ) else {
+                return
+            }
 
             pairingState = .connected
             connectionDetail = "Connected"
@@ -486,6 +493,12 @@ final class TaphapticModel: ObservableObject {
                 }
             }
         } catch RequestError.unauthorized {
+            guard TaphapticSessionPollGuard.shouldApplyResponse(
+                requestedSessionToken: requestedSessionToken,
+                currentSessionToken: watchSessionToken
+            ) else {
+                return
+            }
             watchSessionToken = nil
             channelID = nil
             pairingState = .failed("Session expired. Enter a new code.")
@@ -493,6 +506,12 @@ final class TaphapticModel: ObservableObject {
             showPendingStatus("Session expired. Re-enter code.")
             stopPolling()
         } catch {
+            guard TaphapticSessionPollGuard.shouldApplyResponse(
+                requestedSessionToken: requestedSessionToken,
+                currentSessionToken: watchSessionToken
+            ) else {
+                return
+            }
             if pairingState == .connected {
                 connectionDetail = "Connection issue. Retrying..."
             }
