@@ -19,7 +19,7 @@ import (
 const (
 	defaultTTL        = 10 * time.Minute
 	maxClaimAttempts  = 6
-	defaultCodeLength = 6
+	defaultCodeLength = 4
 )
 
 var (
@@ -402,13 +402,13 @@ func randomToken(size int) string {
 func randomNumericCode() string {
 	var raw [4]byte
 	if _, err := rand.Read(raw[:]); err != nil {
-		modulo := time.Now().UTC().UnixNano() % 1000000
+		modulo := time.Now().UTC().UnixNano() % 10000
 		if modulo < 0 {
 			modulo = -modulo
 		}
-		return fmt.Sprintf("%06d", modulo)
+		return fmt.Sprintf("%04d", modulo)
 	}
 
-	value := binary.BigEndian.Uint32(raw[:]) % 1000000
-	return fmt.Sprintf("%06d", value)
+	value := binary.BigEndian.Uint32(raw[:]) % 10000
+	return fmt.Sprintf("%04d", value)
 }

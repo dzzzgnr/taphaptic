@@ -13,8 +13,8 @@ cd "$repo_root"
 xcodegen generate
 
 exec xcodebuild \
-  -project AgentWatch.xcodeproj \
-  -scheme AgentWatchRegressionTests \
+  -project Taphaptic.xcodeproj \
+  -scheme TaphapticRegressionTests \
   -destination "platform=macOS" \
   CODE_SIGNING_ALLOWED=NO \
   test

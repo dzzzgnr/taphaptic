@@ -17,8 +17,8 @@ cd "$repo_root"
 xcodegen generate
 
 exec xcodebuild \
-  -project AgentWatch.xcodeproj \
-  -scheme AgentWatch \
+  -project Taphaptic.xcodeproj \
+  -scheme Taphaptic \
   -destination "generic/platform=watchOS Simulator" \
   CODE_SIGNING_ALLOWED=NO \
   build

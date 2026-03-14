@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strconv"
@@ -16,53 +19,37 @@ import (
 
 	"agentwatch/internal/api"
 	"agentwatch/internal/channels"
-	"agentwatch/internal/devices"
 	"agentwatch/internal/events"
 	"agentwatch/internal/installations"
-	"agentwatch/internal/pairings"
-	"agentwatch/internal/push"
-	"agentwatch/internal/sessions"
 	"agentwatch/internal/watchpairings"
 )
 
 const (
+	defaultHost                  = "0.0.0.0"
 	defaultPort                  = 8080
 	defaultMaxEvents             = 64
-	defaultDataDirName           = "AgentWatchAPI"
+	defaultDataDirName           = "TaphapticAPI"
 	defaultEventsFileName        = "events.json"
-	defaultDevicesFileName       = "devices.json"
-	defaultSessionsFileName      = "sessions.json"
 	defaultChannelsFileName      = "channels.json"
-	defaultInstallationsFileName = "claude_installations.json"
-	defaultPairingsFileName      = "pairings.json"
+	defaultInstallationsFileName = "installations.json"
 	defaultWatchCodesFileName    = "watch_pairings.json"
-	defaultPairBaseURL           = "https://pairagentwatchapp.vercel.app"
-	defaultPublicAPIBaseURL      = "https://agentwatch-api-production-39a1.up.railway.app"
+	defaultBonjourServiceType    = "_taphaptic._tcp"
+	defaultBonjourDomain         = "local"
 )
 
 type config struct {
+	host                   string
 	port                   int
-	apiKey                 string
-	loginSecret            string
-	publicAPIBaseURL       string
-	pairBaseURL            string
+	serviceName            string
 	eventsStatePath        string
-	devicesStatePath       string
-	sessionsStatePath      string
 	channelsStatePath      string
 	installationsStatePath string
-	pairingsStatePath      string
 	watchCodesStatePath    string
-	pushConfig             pushConfig
 }
 
-type pushConfig struct {
-	enabled        bool
-	teamID         string
-	keyID          string
-	topic          string
-	privateKeyPath string
-	useSandbox     bool
+type bonjourAdvertiser struct {
+	cmd    *exec.Cmd
+	exitCh chan error
 }
 
 func main() {
@@ -81,17 +68,7 @@ func run(logger *log.Logger) error {
 
 	store, err := events.OpenStore(defaultMaxEvents, cfg.eventsStatePath)
 	if err != nil {
-		return fmt.Errorf("store.open_failed: %w", err)
-	}
-
-	deviceStore, err := devices.OpenStore(cfg.devicesStatePath)
-	if err != nil {
-		return fmt.Errorf("devices.open_failed: %w", err)
-	}
-
-	sessionStore, err := sessions.OpenStore(cfg.sessionsStatePath)
-	if err != nil {
-		return fmt.Errorf("sessions.open_failed: %w", err)
+		return fmt.Errorf("events.open_failed: %w", err)
 	}
 
 	channelStore, err := channels.OpenStore(cfg.channelsStatePath)
@@ -104,42 +81,31 @@ func run(logger *log.Logger) error {
 		return fmt.Errorf("installations.open_failed: %w", err)
 	}
 
-	pairingStore, err := pairings.OpenStore(cfg.pairingsStatePath)
-	if err != nil {
-		return fmt.Errorf("pairings.open_failed: %w", err)
-	}
-
 	watchCodeStore, err := watchpairings.OpenStore(cfg.watchCodesStatePath)
 	if err != nil {
 		return fmt.Errorf("watch_pairings.open_failed: %w", err)
 	}
 
-	notifier, err := buildNotifier(cfg.pushConfig, logger)
-	if err != nil {
-		return fmt.Errorf("push.init_failed: %w", err)
-	}
-
 	handler := api.NewHandler(api.Config{
-		APIKey:            cfg.apiKey,
-		LoginSecret:       cfg.loginSecret,
-		PublicAPIBaseURL:  cfg.publicAPIBaseURL,
-		PairBaseURL:       cfg.pairBaseURL,
 		Logger:            logger,
 		Store:             store,
-		DeviceStore:       deviceStore,
-		Notifier:          notifier,
-		PushEnabled:       cfg.pushConfig.enabled,
-		SessionStore:      sessionStore,
 		ChannelStore:      channelStore,
 		InstallationStore: installationStore,
-		PairingStore:      pairingStore,
 		WatchPairingStore: watchCodeStore,
 	})
 
+	addr := net.JoinHostPort(cfg.host, strconv.Itoa(cfg.port))
 	httpServer := &http.Server{
-		Addr:              fmt.Sprintf(":%d", cfg.port),
+		Addr:              addr,
 		Handler:           handler.Routes(),
 		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	advertiser, advertiseErr := startBonjour(cfg.serviceName, cfg.port)
+	if advertiseErr != nil {
+		logger.Printf("api.bonjour_disabled error=%v", advertiseErr)
+	} else {
+		defer advertiser.Close()
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -148,16 +114,13 @@ func run(logger *log.Logger) error {
 	}()
 
 	logger.Printf(
-		"api.started addr=%s events=%s devices=%s sessions=%s channels=%s installations=%s pairings=%s watch_pairings=%s push_enabled=%t",
+		"api.started addr=%s service=%s events=%s channels=%s installations=%s watch_pairings=%s",
 		httpServer.Addr,
+		cfg.serviceName,
 		cfg.eventsStatePath,
-		cfg.devicesStatePath,
-		cfg.sessionsStatePath,
 		cfg.channelsStatePath,
 		cfg.installationsStatePath,
-		cfg.pairingsStatePath,
 		cfg.watchCodesStatePath,
-		cfg.pushConfig.enabled,
 	)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -183,36 +146,28 @@ func run(logger *log.Logger) error {
 }
 
 func loadConfig() (config, error) {
+	host := valueWithFallbacks(defaultHost, "TAPHAPTIC_BIND_HOST", "AGENTWATCH_BIND_HOST")
+
 	port := defaultPort
-	if rawPort := os.Getenv("PORT"); rawPort != "" {
+	if rawPort := valueWithFallbacks("", "PORT", "TAPHAPTIC_PORT", "AGENTWATCH_PORT"); rawPort != "" {
 		parsedPort, err := strconv.Atoi(rawPort)
 		if err != nil || parsedPort <= 0 || parsedPort > 65535 {
-			return config{}, fmt.Errorf("invalid PORT value %q", rawPort)
+			return config{}, fmt.Errorf("invalid port value %q", rawPort)
 		}
 		port = parsedPort
 	}
 
-	apiKey := strings.TrimSpace(os.Getenv("AGENTWATCH_API_KEY"))
-	if apiKey == "" {
-		return config{}, errors.New("AGENTWATCH_API_KEY is required")
+	serviceName := strings.TrimSpace(valueWithFallbacks("", "TAPHAPTIC_SERVICE_NAME", "AGENTWATCH_SERVICE_NAME"))
+	if serviceName == "" {
+		hostname, err := os.Hostname()
+		if err != nil || strings.TrimSpace(hostname) == "" {
+			serviceName = "Taphaptic"
+		} else {
+			serviceName = hostname
+		}
 	}
 
-	loginSecret := strings.TrimSpace(os.Getenv("AGENTWATCH_LOGIN_SECRET"))
-	if loginSecret == "" {
-		loginSecret = apiKey
-	}
-
-	publicAPIBaseURL := strings.TrimSpace(os.Getenv("AGENTWATCH_PUBLIC_API_BASE_URL"))
-	if publicAPIBaseURL == "" {
-		publicAPIBaseURL = defaultPublicAPIBaseURL
-	}
-
-	pairBaseURL := strings.TrimSpace(os.Getenv("AGENTWATCH_PAIR_BASE_URL"))
-	if pairBaseURL == "" {
-		pairBaseURL = defaultPairBaseURL
-	}
-
-	dataDir := strings.TrimSpace(os.Getenv("AGENTWATCH_DATA_DIR"))
+	dataDir := strings.TrimSpace(valueWithFallbacks("", "TAPHAPTIC_DATA_DIR", "AGENTWATCH_DATA_DIR"))
 	if dataDir == "" {
 		userConfigDir, err := os.UserConfigDir()
 		if err != nil {
@@ -221,85 +176,78 @@ func loadConfig() (config, error) {
 		dataDir = filepath.Join(userConfigDir, defaultDataDirName)
 	}
 
-	pushCfg, err := loadPushConfig()
-	if err != nil {
-		return config{}, err
-	}
-
 	return config{
+		host:                   host,
 		port:                   port,
-		apiKey:                 apiKey,
-		loginSecret:            loginSecret,
-		publicAPIBaseURL:       publicAPIBaseURL,
-		pairBaseURL:            pairBaseURL,
-		pushConfig:             pushCfg,
-		eventsStatePath:        statePathFromEnv("AGENTWATCH_EVENTS_FILE", filepath.Join(dataDir, defaultEventsFileName)),
-		devicesStatePath:       statePathFromEnv("AGENTWATCH_DEVICES_FILE", filepath.Join(dataDir, defaultDevicesFileName)),
-		sessionsStatePath:      statePathFromEnv("AGENTWATCH_SESSIONS_FILE", filepath.Join(dataDir, defaultSessionsFileName)),
-		channelsStatePath:      statePathFromEnv("AGENTWATCH_CHANNELS_FILE", filepath.Join(dataDir, defaultChannelsFileName)),
-		installationsStatePath: statePathFromEnv("AGENTWATCH_INSTALLATIONS_FILE", filepath.Join(dataDir, defaultInstallationsFileName)),
-		pairingsStatePath:      statePathFromEnv("AGENTWATCH_PAIRINGS_FILE", filepath.Join(dataDir, defaultPairingsFileName)),
-		watchCodesStatePath:    statePathFromEnv("AGENTWATCH_WATCH_PAIRINGS_FILE", filepath.Join(dataDir, defaultWatchCodesFileName)),
+		serviceName:            serviceName,
+		eventsStatePath:        statePathFromEnv(filepath.Join(dataDir, defaultEventsFileName), "TAPHAPTIC_EVENTS_FILE", "AGENTWATCH_EVENTS_FILE"),
+		channelsStatePath:      statePathFromEnv(filepath.Join(dataDir, defaultChannelsFileName), "TAPHAPTIC_CHANNELS_FILE", "AGENTWATCH_CHANNELS_FILE"),
+		installationsStatePath: statePathFromEnv(filepath.Join(dataDir, defaultInstallationsFileName), "TAPHAPTIC_INSTALLATIONS_FILE", "AGENTWATCH_INSTALLATIONS_FILE"),
+		watchCodesStatePath:    statePathFromEnv(filepath.Join(dataDir, defaultWatchCodesFileName), "TAPHAPTIC_WATCH_PAIRINGS_FILE", "AGENTWATCH_WATCH_PAIRINGS_FILE"),
 	}, nil
 }
 
-func buildNotifier(cfg pushConfig, logger *log.Logger) (push.Notifier, error) {
-	if !cfg.enabled {
-		logger.Printf("api.push_disabled reason=missing_apns_config")
-		return push.NoopNotifier{}, nil
+func startBonjour(serviceName string, port int) (*bonjourAdvertiser, error) {
+	path, err := exec.LookPath("dns-sd")
+	if err != nil {
+		return nil, fmt.Errorf("dns-sd not available: %w", err)
 	}
 
-	return push.NewAPNSNotifier(push.Config{
-		TeamID:         cfg.teamID,
-		KeyID:          cfg.keyID,
-		Topic:          cfg.topic,
-		PrivateKeyPath: cfg.privateKeyPath,
-		UseSandbox:     cfg.useSandbox,
-		Logger:         logger,
-	})
+	cmd := exec.Command(path, "-R", serviceName, defaultBonjourServiceType, defaultBonjourDomain, strconv.Itoa(port))
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+
+	advertiser := &bonjourAdvertiser{
+		cmd:    cmd,
+		exitCh: make(chan error, 1),
+	}
+
+	go func() {
+		advertiser.exitCh <- cmd.Wait()
+	}()
+
+	select {
+	case err := <-advertiser.exitCh:
+		return nil, fmt.Errorf("dns-sd exited early: %w", err)
+	case <-time.After(750 * time.Millisecond):
+		return advertiser, nil
+	}
 }
 
-func statePathFromEnv(envName string, fallback string) string {
-	if value := strings.TrimSpace(os.Getenv(envName)); value != "" {
-		return value
+func (a *bonjourAdvertiser) Close() {
+	if a == nil || a.cmd == nil || a.cmd.Process == nil {
+		return
 	}
 
+	_ = a.cmd.Process.Signal(os.Interrupt)
+
+	select {
+	case <-a.exitCh:
+		return
+	case <-time.After(2 * time.Second):
+		_ = a.cmd.Process.Kill()
+		<-a.exitCh
+	}
+}
+
+func statePathFromEnv(fallback string, envNames ...string) string {
+	for _, envName := range envNames {
+		if value := strings.TrimSpace(os.Getenv(envName)); value != "" {
+			return value
+		}
+	}
 	return fallback
 }
 
-func loadPushConfig() (pushConfig, error) {
-	cfg := pushConfig{
-		useSandbox: true,
-	}
-
-	cfg.teamID = strings.TrimSpace(os.Getenv("AGENTWATCH_APNS_TEAM_ID"))
-	cfg.keyID = strings.TrimSpace(os.Getenv("AGENTWATCH_APNS_KEY_ID"))
-	cfg.topic = strings.TrimSpace(os.Getenv("AGENTWATCH_APNS_TOPIC"))
-	cfg.privateKeyPath = strings.TrimSpace(os.Getenv("AGENTWATCH_APNS_PRIVATE_KEY_PATH"))
-
-	provided := 0
-	for _, value := range []string{cfg.teamID, cfg.keyID, cfg.topic, cfg.privateKeyPath} {
-		if value != "" {
-			provided++
+func valueWithFallbacks(defaultValue string, envNames ...string) string {
+	for _, envName := range envNames {
+		if value := strings.TrimSpace(os.Getenv(envName)); value != "" {
+			return value
 		}
 	}
-
-	if provided == 0 {
-		return cfg, nil
-	}
-	if provided != 4 {
-		return pushConfig{}, errors.New("APNS config requires AGENTWATCH_APNS_TEAM_ID, AGENTWATCH_APNS_KEY_ID, AGENTWATCH_APNS_TOPIC, and AGENTWATCH_APNS_PRIVATE_KEY_PATH")
-	}
-
-	cfg.enabled = true
-
-	if raw := strings.TrimSpace(os.Getenv("AGENTWATCH_APNS_SANDBOX")); raw != "" {
-		parsed, err := strconv.ParseBool(raw)
-		if err != nil {
-			return pushConfig{}, fmt.Errorf("invalid AGENTWATCH_APNS_SANDBOX value %q", raw)
-		}
-		cfg.useSandbox = parsed
-	}
-
-	return cfg, nil
+	return defaultValue
 }

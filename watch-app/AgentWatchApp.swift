@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct AgentWatchApp: App {
+struct TaphapticApp: App {
     @StateObject private var model = AgentWatchModel()
 
     var body: some Scene {

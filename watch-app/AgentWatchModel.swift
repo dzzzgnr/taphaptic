@@ -5,6 +5,8 @@ import WatchKit
 
 @MainActor
 final class AgentWatchModel: ObservableObject {
+    private static let pairingCodeLength = 4
+
     enum PairingState: Equatable {
         case notPaired
         case pairing
@@ -14,11 +16,11 @@ final class AgentWatchModel: ObservableObject {
         var message: String {
             switch self {
             case .notPaired:
-                return "Enter the 6-digit code shown by Claude install."
+                return "Enter the 4-digit code shown by setup."
             case .pairing:
                 return "Pairing..."
             case .connected:
-                return "Connected to AgentWatch cloud."
+                return "Connected to local Taphaptic server."
             case let .failed(message):
                 return message
             }
@@ -109,6 +111,7 @@ final class AgentWatchModel: ObservableObject {
     @Published private(set) var displayState: DisplayState = .waiting
     @Published private(set) var detailText = "Pending"
     @Published private(set) var connectionDetail = "Not paired yet."
+    @Published private(set) var pairingHint = "Looking for local server..."
     @Published private(set) var completedPulseToken = 0
     @Published private(set) var watchSoundEnabled = true
     @Published private(set) var watchHapticEnabled = true
@@ -178,6 +181,8 @@ final class AgentWatchModel: ObservableObject {
     private var lastCompletionTitle: String?
     private var isActive = false
     private var pollIntervalSeconds = 1
+    private let serviceDiscovery = TaphapticServiceDiscovery()
+    private var discoveryProbeTask: Task<Void, Never>?
 
     init() {
         let decoder = JSONDecoder()
@@ -186,7 +191,10 @@ final class AgentWatchModel: ObservableObject {
         watchSoundEnabled = loadBool(forKey: StorageKeys.watchSoundEnabled, defaultValue: true)
         watchHapticEnabled = loadBool(forKey: StorageKeys.watchHapticEnabled, defaultValue: true)
         ensureWatchInstallationID()
-        cloudBaseURL = cloudBaseURL ?? defaultCloudBaseURL
+        configureServiceDiscovery()
+        if let configuredBaseURL = configuredBaseURLFromEnvironment() {
+            cloudBaseURL = configuredBaseURL
+        }
         refreshConfiguration()
     }
 
@@ -194,16 +202,17 @@ final class AgentWatchModel: ObservableObject {
         isActive = active
         if !active {
             stopPolling()
+            stopDiscovery()
             return
         }
 
+        startDiscovery()
         if isPaired {
             startPollingIfPossible()
         }
     }
 
     func refreshConfiguration() {
-        cloudBaseURL = cloudBaseURL ?? defaultCloudBaseURL
         if isPaired {
             pairingState = .connected
             connectionDetail = "Connected"
@@ -213,9 +222,10 @@ final class AgentWatchModel: ObservableObject {
         }
 
         pairingState = .notPaired
-        connectionDetail = "Not paired yet."
+        connectionDetail = cloudBaseURL == nil ? "Waiting for local server..." : "Server found. Enter code."
+        pairingHint = cloudBaseURL == nil ? "Run setup on your Mac" : "Enter 4-digit code"
         displayState = .waiting
-        detailText = "Enter code to connect"
+        detailText = "Enter 4-digit code"
     }
 
     var isPairingInProgress: Bool {
@@ -223,7 +233,7 @@ final class AgentWatchModel: ObservableObject {
     }
 
     var canSubmitPairingCode: Bool {
-        pairingCode.count == 6 && !isPairing
+        pairingCode.count == Self.pairingCodeLength && !isPairing
     }
 
     func pairingDigit(at index: Int) -> String {
@@ -249,7 +259,7 @@ final class AgentWatchModel: ObservableObject {
             clearPairingFailureStateForInput()
         }
 
-        guard pairingCode.count < 6 else {
+        guard pairingCode.count < Self.pairingCodeLength else {
             return
         }
 
@@ -303,13 +313,13 @@ final class AgentWatchModel: ObservableObject {
         }
 
         let normalized = normalizedCode(pairingCode)
-        guard normalized.count == 6 else {
-            pairingState = .failed("Code must be 6 digits.")
+        guard normalized.count == Self.pairingCodeLength else {
+            pairingState = .failed("Code must be 4 digits.")
             return
         }
 
         guard let baseURL = cloudBaseURL else {
-            pairingState = .failed("Cloud API URL is missing.")
+            pairingState = .failed("Waiting for local server. Run setup on Mac.")
             return
         }
 
@@ -330,6 +340,15 @@ final class AgentWatchModel: ObservableObject {
 
         Task { @MainActor in
             do {
+                let isHealthy = await isHealthyBackend(baseURL)
+                guard isHealthy else {
+                    cloudBaseURL = nil
+                    pairingState = .failed("Waiting for local server. Run setup on Mac.")
+                    connectionDetail = "Waiting for local server..."
+                    pairingHint = "Run setup on your Mac"
+                    return
+                }
+
                 let response: ClaimResponse = try await post(
                     url: baseURL.appendingPathComponent("v1/watch/pairings/claim"),
                     body: ClaimRequest(
@@ -356,7 +375,7 @@ final class AgentWatchModel: ObservableObject {
             } catch RequestError.tooManyAttempts {
                 pairingState = .failed("Too many attempts. Generate a new code.")
             } catch {
-                pairingState = .failed("Pairing failed. Check connection and retry.")
+                pairingState = .failed("Pairing failed. Check local network and retry.")
             }
         }
     }
@@ -369,9 +388,10 @@ final class AgentWatchModel: ObservableObject {
         lastTerminalActivityAt = nil
         pairingCode = ""
         pairingState = .notPaired
-        connectionDetail = "Not paired yet."
+        connectionDetail = cloudBaseURL == nil ? "Waiting for local server..." : "Server found. Enter code."
+        pairingHint = cloudBaseURL == nil ? "Run setup on your Mac" : "Enter 4-digit code"
         speechSynthesizer.stopSpeaking(at: .immediate)
-        showPendingStatus("Enter code to connect")
+        showPendingStatus("Enter 4-digit code")
     }
 
     private func applyEvent(_ event: AgentWatchEvent) {
@@ -803,13 +823,101 @@ final class AgentWatchModel: ObservableObject {
         _ = watchInstallationID
     }
 
-    private var defaultCloudBaseURL: URL? {
-        let fromEnvironment = (ProcessInfo.processInfo.environment["AGENTWATCH_API_BASE_URL"] ?? "")
+    private func configureServiceDiscovery() {
+        serviceDiscovery.onAvailabilityChanged = { [weak self] available in
+            Task { @MainActor in
+                guard let self else {
+                    return
+                }
+                if self.isPaired || self.cloudBaseURL != nil {
+                    return
+                }
+                self.connectionDetail = available
+                    ? "Found local server. Enter code."
+                    : "Waiting for local server..."
+                self.pairingHint = available
+                    ? "Enter 4-digit code"
+                    : "Run setup on your Mac"
+            }
+        }
+
+        serviceDiscovery.onURLResolved = { [weak self] url in
+            Task { @MainActor in
+                await self?.considerResolvedURL(url)
+            }
+        }
+    }
+
+    private func startDiscovery() {
+        serviceDiscovery.start()
+    }
+
+    private func stopDiscovery() {
+        serviceDiscovery.stop()
+        discoveryProbeTask?.cancel()
+        discoveryProbeTask = nil
+    }
+
+    private func considerResolvedURL(_ url: URL) async {
+        if cloudBaseURL == url {
+            return
+        }
+
+        discoveryProbeTask?.cancel()
+        discoveryProbeTask = Task { [weak self] in
+            guard let self else {
+                return
+            }
+            let isHealthy = await self.isHealthyBackend(url)
+            await MainActor.run {
+                guard isHealthy else {
+                    return
+                }
+                self.cloudBaseURL = url
+                if self.isPaired {
+                    self.connectionDetail = "Connected"
+                    self.startPollingIfPossible()
+                } else {
+                    self.connectionDetail = "Server found. Enter code."
+                    self.pairingHint = "Enter 4-digit code"
+                }
+            }
+        }
+    }
+
+    private func isHealthyBackend(_ baseURL: URL) async -> Bool {
+        var healthURL = baseURL
+        healthURL.append(path: "healthz")
+
+        var request = URLRequest(url: healthURL)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 1.5
+
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                return false
+            }
+            return httpResponse.statusCode == 204
+        } catch {
+            return false
+        }
+    }
+
+    private func configuredBaseURLFromEnvironment() -> URL? {
+        let fromTaphapticEnvironment = (ProcessInfo.processInfo.environment["TAPHAPTIC_API_BASE_URL"] ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        if !fromEnvironment.isEmpty, let url = URL(string: fromEnvironment) {
+        if !fromTaphapticEnvironment.isEmpty, let url = URL(string: fromTaphapticEnvironment) {
             return url
         }
-        return URL(string: "https://agentwatch-api-production-39a1.up.railway.app")
+
+        let fromLegacyEnvironment = (ProcessInfo.processInfo.environment["AGENTWATCH_API_BASE_URL"] ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !fromLegacyEnvironment.isEmpty, let url = URL(string: fromLegacyEnvironment) {
+            return url
+        }
+
+        return nil
     }
 
     private func fallbackPushToken() -> String {

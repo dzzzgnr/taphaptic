@@ -5,6 +5,7 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -12,7 +13,7 @@ concurrency:
 
 jobs:
   backend:
-    name: Backend Tests
+    name: Backend (Go + Smoke)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -26,10 +27,16 @@ jobs:
           cache: true
 
       - name: Run Go Tests
-        run: go test ./...
+        run: go test ./... -count=1
+
+      - name: Build Local API
+        run: go build -o ./bin/taphaptic-api ./cmd/agentwatch-api
+
+      - name: Run Local E2E Smoke
+        run: ./scripts/smoke-local-e2e.sh
 
   apple-build:
-    name: Apple Build (watchOS)
+    name: Apple (Watch Build + Swift Tests)
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
@@ -43,7 +50,7 @@ jobs:
           fi
 
       - name: Build Watch App (Simulator)
-        run: sh ./scripts/build-watch-app.sh
+        run: ./scripts/build-watch-app.sh
 
       - name: Run Shared Swift Regression Tests
-        run: sh ./scripts/test-shared-swift.sh
+        run: ./scripts/test-shared-swift.sh

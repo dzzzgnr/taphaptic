@@ -93,7 +93,7 @@ struct ContentView: View {
             guard !model.isPairingInProgress else {
                 return
             }
-            if newValue.count == 6 {
+            if newValue.count == 4 {
                 model.submitPairingCode()
             }
         }
@@ -186,7 +186,7 @@ struct ContentView: View {
             }
             return ("Pairing failed", .red)
         case .notPaired:
-            return ("Enter code from terminal", .gray)
+            return (model.pairingHint, .gray)
         case .connected:
             return nil
         }
@@ -607,7 +607,7 @@ struct ContentView: View {
     private func pairingCodeSlots(slotSize: CGFloat, slotSpacing: CGFloat, enteredDigitFontSize: CGFloat) -> some View {
         let enteredSlotSize = slotSize + 2
         return HStack(spacing: slotSpacing) {
-            ForEach(0..<6, id: \.self) { index in
+            ForEach(0..<4, id: \.self) { index in
                 if index < model.pairingCode.count {
                     Text(model.pairingDigit(at: index))
                         .font(.system(size: enteredDigitFontSize, weight: .semibold, design: .rounded))
@@ -646,7 +646,7 @@ struct ContentView: View {
                 }
                 return false
             }()
-            let isDisabled = model.isPairingInProgress || (model.pairingCode.count >= 6 && !isFailedPairing)
+            let isDisabled = model.isPairingInProgress || (model.pairingCode.count >= 4 && !isFailedPairing)
             Button {
                 model.appendPairingDigit(value)
             } label: {

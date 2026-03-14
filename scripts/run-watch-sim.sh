@@ -3,7 +3,7 @@
 set -eu
 
 repo_root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
-bundle_id="local.agentwatch.watch"
+bundle_id="local.taphaptic.watch"
 device_id="${WATCH_SIM_DEVICE_ID:-}"
 paired_phone_id=""
 
@@ -31,7 +31,7 @@ fi
 "$repo_root/scripts/build-watch-app.sh"
 
 app_path="$(
-  ls -td "$HOME"/Library/Developer/Xcode/DerivedData/*/Build/Products/Debug-watchsimulator/AgentWatch.app 2>/dev/null \
+  ls -td "$HOME"/Library/Developer/Xcode/DerivedData/*/Build/Products/Debug-watchsimulator/Taphaptic.app 2>/dev/null \
     | head -n 1
 )"
 if [ -z "$app_path" ]; then

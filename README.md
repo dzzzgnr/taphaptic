@@ -1,107 +1,66 @@
-# AgentWatch (Watch-Only Experiment)
+# Taphaptic
 
-AgentWatch delivers Claude status directly to Apple Watch with no iPhone app dependency in the active path.
+Taphaptic sends Claude Code task status to Apple Watch using a local API running on your Mac.
 
-## Consumer onboarding
+## What this repo contains
 
-1. In Terminal (macOS Terminal or iTerm) run:
+- watchOS app (watch-only)
+- local Go API for pairing + event ingestion
+- Claude hook installer
+
+Out of scope in v1:
+
+- hosted/cloud relay flow
+- iPhone companion flow
+- legacy macOS token service
+
+## Local-only flow (same Wi-Fi)
+
+1. Build the local API:
 
 ```sh
-curl -fsSL https://agentwatchapp.vercel.app/install/claude | sh
+./scripts/build-taphaptic-api.sh
 ```
 
-2. Installer prints a one-time 6-digit code.
-3. Open AgentWatch on Apple Watch and enter the code.
-4. Watch pairs and starts polling status directly from AgentWatch cloud.
+2. Run the API on your Mac:
 
-No local backend. No user-entered backend URL. No QR/deeplink required.
+```sh
+./bin/taphaptic-api
+```
 
-## Architecture (experiment)
+3. Install Claude hooks and print a one-time pairing code:
 
-- Claude hook sends events to cloud backend:
-  - `POST /v1/events` with scoped `claudeSessionToken`
-- Claude installer generates watch pairing code:
-  - `POST /v1/watch/pairings/code` with scoped `installationToken`
-- Watch app claims code:
-  - `POST /v1/watch/pairings/claim` and receives scoped `watchSessionToken`
-- Watch app polls:
-  - `GET /v1/events?since=<id>`
+```sh
+./scripts/install-claude-hook.sh
+```
 
-## Cloud API
+4. Open Taphaptic on Apple Watch.
 
-Public:
+5. Wait for auto-discovery (Bonjour/mDNS) and enter the **4-digit** code.
+
+## How pairing works
+
+- Installer calls `POST /v1/claude/installations` to bootstrap installation identity.
+- Installer calls `POST /v1/watch/pairings/code` to generate a 4-digit code.
+- Watch app auto-discovers the local API on LAN (`_taphaptic._tcp`) and claims code via `POST /v1/watch/pairings/claim`.
+- Claude hooks send events with `POST /v1/events`.
+- Watch polls events with `GET /v1/events?since=<id>`.
+
+## Local API
+
+Public routes:
 
 - `GET /healthz`
-- `POST /v1/auth/login` (legacy local fallback)
 - `POST /v1/claude/installations`
 - `POST /v1/watch/pairings/claim`
 
-Authenticated:
+Authenticated routes:
 
-- `POST /v1/watch/pairings/code`
-- `POST /v1/events`
-- `GET /v1/events?since=<id>`
+- `POST /v1/watch/pairings/code` (installation token)
+- `POST /v1/events` (claude session token)
+- `GET /v1/events?since=<id>` (watch session token)
 
-Deprecated internal routes kept for rollback only:
-
-- `/v1/pairings*` (legacy iPhone/QR flow)
-- `/v1/status`
-- `/v1/devices`
-
-Token scopes:
-
-- `installationToken`: bootstrap identity + create watch pairing code.
-- `claudeSessionToken`: ingest events only.
-- `watchSessionToken`: read events only.
-- admin API key (`AGENTWATCH_API_KEY`): ops/testing override.
-
-## Backend run (local)
-
-Build:
-
-```sh
-./scripts/build-agentwatch-api.sh
-```
-
-Run:
-
-```sh
-AGENTWATCH_API_KEY=replace-me ./bin/agentwatch-api
-```
-
-Optional env:
-
-- `PORT` (default `8080`)
-- `AGENTWATCH_DATA_DIR`
-- `AGENTWATCH_PUBLIC_API_BASE_URL`
-- `AGENTWATCH_PAIR_BASE_URL` (legacy iPhone QR path)
-- APNs env (optional): `AGENTWATCH_APNS_*`
-
-Persisted backend files:
-
-- `events.json`
-- `devices.json`
-- `sessions.json` (legacy)
-- `channels.json`
-- `claude_installations.json`
-- `pairings.json` (legacy iPhone path)
-- `watch_pairings.json`
-
-## Claude setup (repo-local)
-
-```sh
-AGENTWATCH_API_BASE_URL="http://127.0.0.1:8080" sh ./scripts/install-claude-hook.sh
-```
-
-This installs helper + Claude hooks, bootstraps installation identity, stores Claude token, and prints a 6-digit watch pairing code.
-
-## Watch app
-
-Watch behavior:
-
-- Distinct statuses: `Claude completed`, `Claude needs your attention`, `Claude subagent completed`, `Failed`, and `Pending`.
-- In-app settings: sound on/off, haptic on/off, and reset pairing.
-- Pairing UI uses a custom numeric keypad (no dictation keyboard).
+## Watch app build
 
 Build:
 
@@ -109,7 +68,7 @@ Build:
 ./scripts/build-watch-app.sh
 ```
 
-Run in simulator:
+Run on simulator:
 
 ```sh
 ./scripts/run-watch-sim.sh
@@ -121,40 +80,29 @@ Update all booted watch simulators:
 ./scripts/run-watch-sims.sh
 ```
 
-## iOS app status
+## CI checks (local equivalent)
 
-iOS app code remains in the repository for rollback/reference, but it is not part of the active experiment build path.
-
-- `./scripts/build-phone-app.sh` and `./scripts/run-phone-sim.sh` intentionally exit with guidance.
-- Legacy iPhone pairing endpoints remain server-side.
-
-## Operations
-
-Health check + deployment validation:
+Run backend unit tests:
 
 ```sh
-./scripts/check-railway-production.sh --strict
+go test ./... -count=1
 ```
 
-`--strict` validates deployment health/logs for watch-only MVP. Add `--require-apns` only when APNs rollout is in scope.
-
-Cloud smoke test (watch flow):
+Run API smoke e2e (installation -> pairing -> claim -> event -> poll):
 
 ```sh
-./scripts/smoke-cloud-e2e.sh
+./scripts/smoke-local-e2e.sh
 ```
 
-Hosted installer check:
+Run Apple/watch checks:
 
 ```sh
-./scripts/check-hosted-installer.sh
+./scripts/build-watch-app.sh
+./scripts/test-shared-swift.sh
 ```
 
-## Legacy local fallback (dev only)
+## Notes
 
-The hook can still send to local macOS service only when explicitly enabled:
-
-```sh
-export AGENTWATCH_ALLOW_LEGACY_LOCAL=1
-export AGENTWATCH_TOKEN=replace-me
-```
+- Watch and Mac must be on the same local network.
+- If discovery fails, keep the API running and retry pairing from watch.
+- Cloud hosting scripts in `scripts/` and `deploy/` are deprecated in local-only v1.

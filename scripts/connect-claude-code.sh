@@ -45,6 +45,6 @@ if [ "$scope" = "project" ]; then
   /bin/sh "$repo_root/scripts/patch-claude-settings.sh" --scope project --with-notifications >/dev/null
 fi
 
-printf '%s\n' "AgentWatch onboarding is ready for Claude."
-printf '%s\n' "Installer prints a 6-digit pairing code for Apple Watch."
+printf '%s\n' "Taphaptic onboarding is ready for Claude."
+printf '%s\n' "Installer prints a 4-digit pairing code for Apple Watch."
 printf '%s\n' "Start a new Claude session so updated hooks are loaded."

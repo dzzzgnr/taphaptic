@@ -63,10 +63,10 @@ import sys
 settings_path = sys.argv[1]
 with_notifications = sys.argv[2] == "1"
 
-STOP_COMMAND = '/bin/sh "${HOME}/Library/Application Support/AgentWatch/bin/agentwatch-hook" stop'
-SUBAGENT_COMMAND = '/bin/sh "${HOME}/Library/Application Support/AgentWatch/bin/agentwatch-hook" subagent_stop'
-PERMISSION_COMMAND = '/bin/sh "${HOME}/Library/Application Support/AgentWatch/bin/agentwatch-hook" permission_prompt'
-IDLE_COMMAND = '/bin/sh "${HOME}/Library/Application Support/AgentWatch/bin/agentwatch-hook" idle_prompt'
+STOP_COMMAND = '/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" stop'
+SUBAGENT_COMMAND = '/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" subagent_stop'
+PERMISSION_COMMAND = '/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" permission_prompt'
+IDLE_COMMAND = '/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" idle_prompt'
 
 
 def load_settings(path: str) -> dict:
@@ -82,11 +82,20 @@ def load_settings(path: str) -> dict:
     return data
 
 
-def ensure_array(config: dict, key: str) -> list:
-    value = config.get(key)
+def ensure_hooks_root(config: dict) -> dict:
+    hooks = config.get("hooks")
+    if hooks is None:
+        hooks = {}
+    if not isinstance(hooks, dict):
+        raise SystemExit("Claude settings key 'hooks' must be an object")
+    return hooks
+
+
+def ensure_array(hooks: dict, key: str) -> list:
+    value = hooks.get(key)
     if value is None:
-        config[key] = []
-        return config[key]
+        hooks[key] = []
+        return hooks[key]
 
     if not isinstance(value, list):
         raise SystemExit(f"Claude settings key '{key}' must be an array")
@@ -128,17 +137,23 @@ def add_command(entries: list, matcher: str, command: str) -> None:
 
 
 config = load_settings(settings_path)
+hooks = ensure_hooks_root(config)
 
-stop_entries = ensure_array(config, "Stop")
+stop_entries = ensure_array(hooks, "Stop")
 add_command(stop_entries, "*", STOP_COMMAND)
 
-subagent_entries = ensure_array(config, "SubagentStop")
+subagent_entries = ensure_array(hooks, "SubagentStop")
 add_command(subagent_entries, "*", SUBAGENT_COMMAND)
 
 if with_notifications:
-    notification_entries = ensure_array(config, "Notification")
+    notification_entries = ensure_array(hooks, "Notification")
     add_command(notification_entries, "permission_prompt", PERMISSION_COMMAND)
     add_command(notification_entries, "idle_prompt", IDLE_COMMAND)
+
+config["hooks"] = hooks
+for legacy_key in ("Stop", "SubagentStop", "Notification"):
+    if legacy_key in config:
+        del config[legacy_key]
 
 with open(settings_path, "w", encoding="utf-8") as handle:
     json.dump(config, handle, indent=2)

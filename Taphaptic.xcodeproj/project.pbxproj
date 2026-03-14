@@ -1,0 +1,435 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1D35693191E0FA41A9CDC61D /* AgentWatchCursorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D9F1CDC9A6C3F223836193 /* AgentWatchCursorStore.swift */; };
+		1F5885823C4908409022B189 /* AgentWatchSharedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AC577E120CAE1CAE1077845 /* AgentWatchSharedModels.swift */; };
+		28A6BE18C79282E6A37EBBB5 /* AgentWatchWatchEventPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2A8F87A2F0A4FA142656DD1 /* AgentWatchWatchEventPolicy.swift */; };
+		2A7820C15349200EB02E5803 /* TaphapticServiceDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF20D4F2ABA944087F2BE99E /* TaphapticServiceDiscovery.swift */; };
+		361448E1984321B62C307612 /* AgentWatchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8B55F68279682091E3EB5D0 /* AgentWatchModel.swift */; };
+		4EAB4C7811BAEB26031658F7 /* AgentWatchCursorStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6257E572A610F4933945BD7 /* AgentWatchCursorStoreTests.swift */; };
+		637FE1F80E78B4B06682DB26 /* AgentWatchWatchEventPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B35BC3CC7429F4ADEFE0BF3F /* AgentWatchWatchEventPolicyTests.swift */; };
+		A8ADC21BEAF2259008FF7286 /* AgentWatchCursorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D9F1CDC9A6C3F223836193 /* AgentWatchCursorStore.swift */; };
+		B937B0C0B59BE4CFBA471A3B /* AgentWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62D5844C01332BFF685D796 /* AgentWatchApp.swift */; };
+		D61A66350D85F8D776B5A8AD /* AgentWatchSharedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AC577E120CAE1CAE1077845 /* AgentWatchSharedModels.swift */; };
+		D69B958F5D94D2C6AF355E36 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 988EA82B7250B4D755851D76 /* ContentView.swift */; };
+		EE3B578DB2FBCAF540E3BE98 /* AgentWatchWatchEventPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2A8F87A2F0A4FA142656DD1 /* AgentWatchWatchEventPolicy.swift */; };
+		F36E306919876DCF4459433D /* BlurTextTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53FD74ECCFCD3F657C4C1FE0 /* BlurTextTransition.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		53FD74ECCFCD3F657C4C1FE0 /* BlurTextTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlurTextTransition.swift; sourceTree = "<group>"; };
+		5AC577E120CAE1CAE1077845 /* AgentWatchSharedModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWatchSharedModels.swift; sourceTree = "<group>"; };
+		62D9F1CDC9A6C3F223836193 /* AgentWatchCursorStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWatchCursorStore.swift; sourceTree = "<group>"; };
+		6CE8BE767D0EFDC05738DF3C /* Taphaptic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Taphaptic.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		988EA82B7250B4D755851D76 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B35BC3CC7429F4ADEFE0BF3F /* AgentWatchWatchEventPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWatchWatchEventPolicyTests.swift; sourceTree = "<group>"; };
+		B8B55F68279682091E3EB5D0 /* AgentWatchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWatchModel.swift; sourceTree = "<group>"; };
+		BFD3E229C0241686AC5FDF18 /* TaphapticSharedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TaphapticSharedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2A8F87A2F0A4FA142656DD1 /* AgentWatchWatchEventPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWatchWatchEventPolicy.swift; sourceTree = "<group>"; };
+		DF20D4F2ABA944087F2BE99E /* TaphapticServiceDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaphapticServiceDiscovery.swift; sourceTree = "<group>"; };
+		E6257E572A610F4933945BD7 /* AgentWatchCursorStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWatchCursorStoreTests.swift; sourceTree = "<group>"; };
+		E62D5844C01332BFF685D796 /* AgentWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWatchApp.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		0590A84FDC846A2E5C6A4ED3 /* swift */ = {
+			isa = PBXGroup;
+			children = (
+				E6257E572A610F4933945BD7 /* AgentWatchCursorStoreTests.swift */,
+				B35BC3CC7429F4ADEFE0BF3F /* AgentWatchWatchEventPolicyTests.swift */,
+			);
+			path = swift;
+			sourceTree = "<group>";
+		};
+		14F9B7E0FCD11A4D27A2C8C0 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				0590A84FDC846A2E5C6A4ED3 /* swift */,
+			);
+			path = tests;
+			sourceTree = "<group>";
+		};
+		67857B20C449EB5B0F1FC9CA /* watch-app */ = {
+			isa = PBXGroup;
+			children = (
+				E62D5844C01332BFF685D796 /* AgentWatchApp.swift */,
+				B8B55F68279682091E3EB5D0 /* AgentWatchModel.swift */,
+				53FD74ECCFCD3F657C4C1FE0 /* BlurTextTransition.swift */,
+				988EA82B7250B4D755851D76 /* ContentView.swift */,
+				DF20D4F2ABA944087F2BE99E /* TaphapticServiceDiscovery.swift */,
+			);
+			path = "watch-app";
+			sourceTree = "<group>";
+		};
+		88B824AEAE3A3F376F9C85D0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				6CE8BE767D0EFDC05738DF3C /* Taphaptic.app */,
+				BFD3E229C0241686AC5FDF18 /* TaphapticSharedTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A8C8E64E5F359598F4868093 /* shared */ = {
+			isa = PBXGroup;
+			children = (
+				62D9F1CDC9A6C3F223836193 /* AgentWatchCursorStore.swift */,
+				5AC577E120CAE1CAE1077845 /* AgentWatchSharedModels.swift */,
+				C2A8F87A2F0A4FA142656DD1 /* AgentWatchWatchEventPolicy.swift */,
+			);
+			path = shared;
+			sourceTree = "<group>";
+		};
+		DEB2F0449B77E0D2C658CC55 = {
+			isa = PBXGroup;
+			children = (
+				A8C8E64E5F359598F4868093 /* shared */,
+				14F9B7E0FCD11A4D27A2C8C0 /* tests */,
+				67857B20C449EB5B0F1FC9CA /* watch-app */,
+				88B824AEAE3A3F376F9C85D0 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		06F11C263B486BAFF386382F /* TaphapticSharedTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8E267A34D2FA9AA69693FF5F /* Build configuration list for PBXNativeTarget "TaphapticSharedTests" */;
+			buildPhases = (
+				B54D5800AEB3CA4EAC0F61DD /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TaphapticSharedTests;
+			packageProductDependencies = (
+			);
+			productName = TaphapticSharedTests;
+			productReference = BFD3E229C0241686AC5FDF18 /* TaphapticSharedTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		69D4E33EEF56E3DEAD2A682E /* Taphaptic */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 73C6DB2DCB3ED068C0F9B2D9 /* Build configuration list for PBXNativeTarget "Taphaptic" */;
+			buildPhases = (
+				1A392910698A5FC9DCAB00F3 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Taphaptic;
+			packageProductDependencies = (
+			);
+			productName = Taphaptic;
+			productReference = 6CE8BE767D0EFDC05738DF3C /* Taphaptic.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		99763C591FBDC4FCA6AC0899 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					69D4E33EEF56E3DEAD2A682E = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = DF7E8291F91E106393173284 /* Build configuration list for PBXProject "Taphaptic" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = DEB2F0449B77E0D2C658CC55;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				69D4E33EEF56E3DEAD2A682E /* Taphaptic */,
+				06F11C263B486BAFF386382F /* TaphapticSharedTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1A392910698A5FC9DCAB00F3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B937B0C0B59BE4CFBA471A3B /* AgentWatchApp.swift in Sources */,
+				A8ADC21BEAF2259008FF7286 /* AgentWatchCursorStore.swift in Sources */,
+				361448E1984321B62C307612 /* AgentWatchModel.swift in Sources */,
+				D61A66350D85F8D776B5A8AD /* AgentWatchSharedModels.swift in Sources */,
+				EE3B578DB2FBCAF540E3BE98 /* AgentWatchWatchEventPolicy.swift in Sources */,
+				F36E306919876DCF4459433D /* BlurTextTransition.swift in Sources */,
+				D69B958F5D94D2C6AF355E36 /* ContentView.swift in Sources */,
+				2A7820C15349200EB02E5803 /* TaphapticServiceDiscovery.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B54D5800AEB3CA4EAC0F61DD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1D35693191E0FA41A9CDC61D /* AgentWatchCursorStore.swift in Sources */,
+				4EAB4C7811BAEB26031658F7 /* AgentWatchCursorStoreTests.swift in Sources */,
+				1F5885823C4908409022B189 /* AgentWatchSharedModels.swift in Sources */,
+				28A6BE18C79282E6A37EBBB5 /* AgentWatchWatchEventPolicy.swift in Sources */,
+				637FE1F80E78B4B06682DB26 /* AgentWatchWatchEventPolicyTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		158592E8B88E001677F4D9C0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		5CA08E83CD7C8290DDD930DC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = local.taphaptic.sharedtests;
+				PRODUCT_NAME = TaphapticSharedTests;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		B5B94BF6EFBD514EB8A682E8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = local.taphaptic.sharedtests;
+				PRODUCT_NAME = TaphapticSharedTests;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		B73C8562208F235C499CDDD9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Taphaptic;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
+				INFOPLIST_KEY_NSBonjourServices = (
+					_taphaptic._tcp,
+				);
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Taphaptic discovers your Mac on the local network for pairing.";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKWatchOnly = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = local.taphaptic.watch;
+				PRODUCT_NAME = Taphaptic;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Release;
+		};
+		E0E48C35FC9B187C812CFDC0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Taphaptic;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
+				INFOPLIST_KEY_NSBonjourServices = (
+					_taphaptic._tcp,
+				);
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Taphaptic discovers your Mac on the local network for pairing.";
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKWatchOnly = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = local.taphaptic.watch;
+				PRODUCT_NAME = Taphaptic;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Debug;
+		};
+		F92EBA8D0EDA21C67764ACAE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		73C6DB2DCB3ED068C0F9B2D9 /* Build configuration list for PBXNativeTarget "Taphaptic" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E0E48C35FC9B187C812CFDC0 /* Debug */,
+				B73C8562208F235C499CDDD9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8E267A34D2FA9AA69693FF5F /* Build configuration list for PBXNativeTarget "TaphapticSharedTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B5B94BF6EFBD514EB8A682E8 /* Debug */,
+				5CA08E83CD7C8290DDD930DC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DF7E8291F91E106393173284 /* Build configuration list for PBXProject "Taphaptic" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F92EBA8D0EDA21C67764ACAE /* Debug */,
+				158592E8B88E001677F4D9C0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 99763C591FBDC4FCA6AC0899 /* Project object */;
+}

@@ -2,39 +2,19 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
-	"unicode/utf8"
 
 	"agentwatch/internal/channels"
-	"agentwatch/internal/devices"
 	"agentwatch/internal/events"
 	"agentwatch/internal/installations"
-	"agentwatch/internal/pairings"
-	"agentwatch/internal/push"
-	"agentwatch/internal/sessions"
 	"agentwatch/internal/watchpairings"
 )
 
-type recordingNotifier struct {
-	calls   int
-	event   events.Event
-	devices []devices.Device
-}
-
-func (n *recordingNotifier) NotifyEvent(_ context.Context, event events.Event, devicesList []devices.Device) error {
-	n.calls++
-	n.event = event
-	n.devices = append([]devices.Device(nil), devicesList...)
-	return nil
-}
-
 func TestHealthzDoesNotRequireAuth(t *testing.T) {
-	handler := newTestHandler(nil)
+	handler := newTestHandler()
 
 	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	recorder := httptest.NewRecorder()
@@ -45,151 +25,63 @@ func TestHealthzDoesNotRequireAuth(t *testing.T) {
 	}
 }
 
-func TestCreateEventRequiresBearerToken(t *testing.T) {
-	handler := newTestHandler(nil)
+func TestCreateInstallationReturnsScopedTokens(t *testing.T) {
+	handler := newTestHandler()
 
-	request := httptest.NewRequest(http.MethodPost, "/v1/events", bytes.NewBufferString(`{"type":"completed"}`))
-	recorder := httptest.NewRecorder()
-	handler.Routes().ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusUnauthorized {
-		t.Fatalf("POST /v1/events returned %d, want %d", recorder.Code, http.StatusUnauthorized)
+	installation := createInstallation(t, handler, "")
+	if installation.InstallationToken == "" {
+		t.Fatalf("installation token is empty")
 	}
-}
-
-func TestPairingFlowReturnsScopedTokens(t *testing.T) {
-	handler := newTestHandler(nil)
-
-	installation := createInstallation(t, handler)
-	pairing := createPairing(t, handler, installation.InstallationToken)
-
-	pending := getPairingStatus(t, handler, installation.InstallationToken, pairing.PairingID)
-	if pending.Status != pairings.StatusPending {
-		t.Fatalf("pending status mismatch: got %q want %q", pending.Status, pairings.StatusPending)
+	if installation.InstallationID == "" {
+		t.Fatalf("installation ID is empty")
 	}
-
-	claim := claimPairing(t, handler, pairing.PairingToken, "phone-a", "aabbccdd")
-	if claim.PhoneSessionToken == "" {
-		t.Fatalf("claim response missing phoneSessionToken")
+	if installation.ChannelID == "" {
+		t.Fatalf("channel ID is empty")
 	}
-
-	paired := getPairingStatus(t, handler, installation.InstallationToken, pairing.PairingID)
-	if paired.Status != pairings.StatusPaired {
-		t.Fatalf("paired status mismatch: got %q want %q", paired.Status, pairings.StatusPaired)
-	}
-	if paired.ClaudeSessionToken == "" {
-		t.Fatalf("paired response missing claudeSessionToken")
-	}
-	if paired.ChannelID == "" {
-		t.Fatalf("paired response missing channelID")
-	}
-
-	createEvent(t, handler, paired.ClaudeSessionToken, `{"type":"completed"}`)
-	status := getStatus(t, handler, claim.PhoneSessionToken)
-	if status.Current == nil {
-		t.Fatalf("expected current event for paired phone token")
-	}
-	if status.Current.Type != events.TypeCompleted {
-		t.Fatalf("wrong event type in status: got %s", status.Current.Type)
-	}
-}
-
-func TestChannelIsolationBetweenPairings(t *testing.T) {
-	handler := newTestHandler(nil)
-
-	installationA := createInstallation(t, handler)
-	pairingA := createPairing(t, handler, installationA.InstallationToken)
-	claimA := claimPairing(t, handler, pairingA.PairingToken, "phone-a", "aabbccdd")
-	pairedA := getPairingStatus(t, handler, installationA.InstallationToken, pairingA.PairingID)
-
-	installationB := createInstallation(t, handler)
-	pairingB := createPairing(t, handler, installationB.InstallationToken)
-	claimB := claimPairing(t, handler, pairingB.PairingToken, "phone-b", "bbccddaa")
-
-	createEvent(t, handler, pairedA.ClaudeSessionToken, `{"type":"failed"}`)
-
-	statusA := getStatus(t, handler, claimA.PhoneSessionToken)
-	if statusA.Current == nil || statusA.Current.Type != events.TypeFailed {
-		t.Fatalf("status A did not receive its channel event: %+v", statusA.Current)
-	}
-
-	statusB := getStatus(t, handler, claimB.PhoneSessionToken)
-	if statusB.Current != nil {
-		t.Fatalf("status B should not receive channel A event, got %+v", statusB.Current)
-	}
-}
-
-func TestPairingClaimCannotBeReused(t *testing.T) {
-	handler := newTestHandler(nil)
-
-	installation := createInstallation(t, handler)
-	pairing := createPairing(t, handler, installation.InstallationToken)
-	_ = claimPairing(t, handler, pairing.PairingToken, "phone-a", "aabbccdd")
-
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/v1/pairings/claim",
-		bytes.NewBufferString(`{"pairingToken":"`+pairing.PairingToken+`","phoneInstallationId":"phone-b","pushToken":"bbccddaa"}`),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	recorder := httptest.NewRecorder()
-	handler.Routes().ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusConflict {
-		t.Fatalf("second claim returned %d, want %d", recorder.Code, http.StatusConflict)
-	}
-}
-
-func TestWatchCodePairingFlowReturnsWatchToken(t *testing.T) {
-	handler := newTestHandler(nil)
-
-	installation := createInstallation(t, handler)
 	if installation.ClaudeSessionToken == "" {
-		t.Fatalf("installation response missing claudeSessionToken")
+		t.Fatalf("claude session token is empty")
 	}
+}
 
+func TestCreateInstallationWithExistingTokenRestoresIdentity(t *testing.T) {
+	handler := newTestHandler()
+
+	first := createInstallation(t, handler, "")
+	second := createInstallation(t, handler, first.InstallationToken)
+
+	if first.InstallationID != second.InstallationID {
+		t.Fatalf("restored installation ID mismatch: got %s want %s", second.InstallationID, first.InstallationID)
+	}
+	if first.InstallationToken != second.InstallationToken {
+		t.Fatalf("restored installation token mismatch")
+	}
+	if first.ChannelID != second.ChannelID {
+		t.Fatalf("restored channel ID mismatch")
+	}
+}
+
+func TestWatchPairingAndEventFlow(t *testing.T) {
+	handler := newTestHandler()
+
+	installation := createInstallation(t, handler, "")
 	watchCode := createWatchCode(t, handler, installation.InstallationToken)
 	claim := claimWatchCode(t, handler, watchCode.Code, "watch-a")
-	if claim.WatchSessionToken == "" {
-		t.Fatalf("claim response missing watchSessionToken")
-	}
-	if claim.ChannelID == "" {
-		t.Fatalf("claim response missing channelID")
-	}
 
 	createEvent(t, handler, installation.ClaudeSessionToken, `{"type":"completed"}`)
+	eventResponse := getEvents(t, handler, claim.WatchSessionToken, 0)
 
-	status := getStatus(t, handler, claim.WatchSessionToken)
-	if status.Current == nil {
-		t.Fatalf("expected current event for watch token")
+	if len(eventResponse.Events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(eventResponse.Events))
 	}
-	if status.Current.Type != events.TypeCompleted {
-		t.Fatalf("wrong event type in status: got %s", status.Current.Type)
-	}
-}
-
-func TestWatchTokenReceivesSubagentCompletedEvent(t *testing.T) {
-	handler := newTestHandler(nil)
-
-	installation := createInstallation(t, handler)
-	watchCode := createWatchCode(t, handler, installation.InstallationToken)
-	claim := claimWatchCode(t, handler, watchCode.Code, "watch-a")
-
-	createEvent(t, handler, installation.ClaudeSessionToken, `{"type":"subagent_completed"}`)
-
-	status := getStatus(t, handler, claim.WatchSessionToken)
-	if status.Current == nil {
-		t.Fatalf("expected current event for watch token")
-	}
-	if status.Current.Type != events.TypeSubagentCompleted {
-		t.Fatalf("wrong event type in status: got %s", status.Current.Type)
+	if eventResponse.Events[0].Type != events.TypeCompleted {
+		t.Fatalf("unexpected event type: got %s", eventResponse.Events[0].Type)
 	}
 }
 
 func TestWatchCodeClaimCannotBeReused(t *testing.T) {
-	handler := newTestHandler(nil)
+	handler := newTestHandler()
 
-	installation := createInstallation(t, handler)
+	installation := createInstallation(t, handler, "")
 	watchCode := createWatchCode(t, handler, installation.InstallationToken)
 	_ = claimWatchCode(t, handler, watchCode.Code, "watch-a")
 
@@ -203,14 +95,14 @@ func TestWatchCodeClaimCannotBeReused(t *testing.T) {
 	handler.Routes().ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusConflict {
-		t.Fatalf("second watch claim returned %d, want %d", recorder.Code, http.StatusConflict)
+		t.Fatalf("second claim returned %d, want %d", recorder.Code, http.StatusConflict)
 	}
 }
 
 func TestWatchTokenCannotCreateEvents(t *testing.T) {
-	handler := newTestHandler(nil)
+	handler := newTestHandler()
 
-	installation := createInstallation(t, handler)
+	installation := createInstallation(t, handler, "")
 	watchCode := createWatchCode(t, handler, installation.InstallationToken)
 	claim := claimWatchCode(t, handler, watchCode.Code, "watch-a")
 
@@ -225,150 +117,100 @@ func TestWatchTokenCannotCreateEvents(t *testing.T) {
 	}
 }
 
-func TestClaudeTokenCannotReadStatus(t *testing.T) {
-	handler := newTestHandler(nil)
+func TestClaudeTokenCannotReadEvents(t *testing.T) {
+	handler := newTestHandler()
 
-	installation := createInstallation(t, handler)
-	request := httptest.NewRequest(http.MethodGet, "/v1/status", nil)
+	installation := createInstallation(t, handler, "")
+	request := httptest.NewRequest(http.MethodGet, "/v1/events", nil)
 	request.Header.Set("Authorization", "Bearer "+installation.ClaudeSessionToken)
 	recorder := httptest.NewRecorder()
 	handler.Routes().ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusUnauthorized {
-		t.Fatalf("claude token GET /v1/status returned %d, want %d", recorder.Code, http.StatusUnauthorized)
+		t.Fatalf("claude token GET /v1/events returned %d, want %d", recorder.Code, http.StatusUnauthorized)
 	}
 }
 
-func TestLegacyLoginStillWorks(t *testing.T) {
-	handler := newTestHandler(nil)
+func TestWatchCodeEndpointRequiresInstallationToken(t *testing.T) {
+	handler := newTestHandler()
 
-	request := httptest.NewRequest(http.MethodPost, "/v1/auth/login", bytes.NewBufferString(`{"code":"login-code"}`))
+	request := httptest.NewRequest(http.MethodPost, "/v1/watch/pairings/code", bytes.NewBufferString(`{}`))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
 	handler.Routes().ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("POST /v1/auth/login returned %d, want %d", recorder.Code, http.StatusOK)
-	}
-
-	var response struct {
-		SessionToken string `json:"sessionToken"`
-	}
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if response.SessionToken == "" {
-		t.Fatalf("expected non-empty legacy session token")
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("POST /v1/watch/pairings/code returned %d, want %d", recorder.Code, http.StatusUnauthorized)
 	}
 }
 
-func TestBuildTerminalQRIsCompact(t *testing.T) {
-	qr := buildTerminalQR("https://pairagentwatchapp.vercel.app/p/" + strings.Repeat("a", 64))
-	if strings.TrimSpace(qr) == "" {
-		t.Fatalf("buildTerminalQR returned empty output")
-	}
+func TestWatchClaimRejectsNonNumericCode(t *testing.T) {
+	handler := newTestHandler()
 
-	lines := strings.Split(qr, "\n")
-	if len(lines) > 40 {
-		t.Fatalf("buildTerminalQR produced %d lines, want <= 40", len(lines))
-	}
+	request := httptest.NewRequest(http.MethodPost, "/v1/watch/pairings/claim", bytes.NewBufferString(`{"code":"12ab","watchInstallationId":"watch-a"}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.Routes().ServeHTTP(recorder, request)
 
-	maxWidth := 0
-	hasDarkModules := false
-	for _, line := range lines {
-		width := utf8.RuneCountInString(line)
-		if width > maxWidth {
-			maxWidth = width
-		}
-		if strings.ContainsAny(line, "█▀▄") {
-			hasDarkModules = true
-		}
-	}
-
-	if maxWidth > 80 {
-		t.Fatalf("buildTerminalQR produced width %d, want <= 80", maxWidth)
-	}
-	if !hasDarkModules {
-		t.Fatalf("buildTerminalQR output does not contain dark module characters")
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("POST /v1/watch/pairings/claim returned %d, want %d", recorder.Code, http.StatusBadRequest)
 	}
 }
 
-func TestNormalizePairingToken(t *testing.T) {
-	raw := "bc8136aa%20%20%2008bf97d7afd4aa2cb905ed54b831b6bab4594fcb"
-	normalized := normalizePairingToken(raw)
-	want := "bc8136aa08bf97d7afd4aa2cb905ed54b831b6bab4594fcb"
-	if normalized != want {
-		t.Fatalf("normalizePairingToken(%q) = %q, want %q", raw, normalized, want)
-	}
+type installationResponse struct {
+	InstallationToken string `json:"installationToken"`
+	InstallationID    string `json:"installationId"`
+	ChannelID         string `json:"channelId"`
+	ClaudeSessionToken string `json:"claudeSessionToken"`
 }
 
-func newTestHandler(notifier *recordingNotifier) *Handler {
-	var pushNotifier push.Notifier
-	if notifier != nil {
-		pushNotifier = notifier
-	}
+type watchCodeResponse struct {
+	Code   string `json:"code"`
+	CodeID string `json:"codeId"`
+}
 
+type watchClaimResponse struct {
+	WatchSessionToken string `json:"watchSessionToken"`
+	ChannelID         string `json:"channelId"`
+}
+
+type eventListResponse struct {
+	Events []events.Event `json:"events"`
+}
+
+func newTestHandler() *Handler {
 	return NewHandler(Config{
-		APIKey:            "admin-key",
-		LoginSecret:       "login-code",
 		Store:             events.NewStore(64),
-		DeviceStore:       devices.NewStore(),
-		Notifier:          pushNotifier,
-		PushEnabled:       true,
-		SessionStore:      sessions.NewStore(),
 		ChannelStore:      channels.NewStore(),
 		InstallationStore: installations.NewStore(),
-		PairingStore:      pairings.NewStore(),
 		WatchPairingStore: watchpairings.NewStore(),
 	})
 }
 
-func createInstallation(t *testing.T, handler *Handler) createInstallationResponse {
+func createInstallation(t *testing.T, handler *Handler, installationToken string) installationResponse {
 	t.Helper()
 
 	request := httptest.NewRequest(http.MethodPost, "/v1/claude/installations", bytes.NewBufferString(`{}`))
+	if installationToken != "" {
+		request.Header.Set("Authorization", "Bearer "+installationToken)
+	}
 	request.Header.Set("Content-Type", "application/json")
+
 	recorder := httptest.NewRecorder()
 	handler.Routes().ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusOK {
-		t.Fatalf("POST /v1/claude/installations returned %d, want %d", recorder.Code, http.StatusOK)
+		t.Fatalf("POST /v1/claude/installations returned %d, want %d body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
 	}
 
-	var response createInstallationResponse
+	var response installationResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode create installation response: %v", err)
-	}
-	if response.InstallationToken == "" || response.InstallationID == "" {
-		t.Fatalf("invalid installation response: %+v", response)
+		t.Fatalf("decode installation response: %v", err)
 	}
 	return response
 }
 
-func createPairing(t *testing.T, handler *Handler, installationToken string) createPairingResponse {
-	t.Helper()
-
-	request := httptest.NewRequest(http.MethodPost, "/v1/pairings", bytes.NewBufferString(`{}`))
-	request.Header.Set("Authorization", "Bearer "+installationToken)
-	request.Header.Set("Content-Type", "application/json")
-	recorder := httptest.NewRecorder()
-	handler.Routes().ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("POST /v1/pairings returned %d, want %d", recorder.Code, http.StatusOK)
-	}
-
-	var response createPairingResponse
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode create pairing response: %v", err)
-	}
-	if response.PairingID == "" || response.PairingToken == "" {
-		t.Fatalf("invalid pairing response: %+v", response)
-	}
-	return response
-}
-
-func createWatchCode(t *testing.T, handler *Handler, installationToken string) createWatchPairingCodeResponse {
+func createWatchCode(t *testing.T, handler *Handler, installationToken string) watchCodeResponse {
 	t.Helper()
 
 	request := httptest.NewRequest(http.MethodPost, "/v1/watch/pairings/code", bytes.NewBufferString(`{}`))
@@ -381,21 +223,24 @@ func createWatchCode(t *testing.T, handler *Handler, installationToken string) c
 		t.Fatalf("POST /v1/watch/pairings/code returned %d, want %d body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
 	}
 
-	var response createWatchPairingCodeResponse
+	var response watchCodeResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode create watch code response: %v", err)
+		t.Fatalf("decode watch code response: %v", err)
 	}
 	if response.Code == "" || response.CodeID == "" {
-		t.Fatalf("invalid watch code response: %+v", response)
+		t.Fatalf("watch code response is incomplete: %+v", response)
 	}
 	return response
 }
 
-func claimWatchCode(t *testing.T, handler *Handler, code string, watchInstallationID string) claimWatchPairingResponse {
+func claimWatchCode(t *testing.T, handler *Handler, code string, watchInstallationID string) watchClaimResponse {
 	t.Helper()
 
-	payload := `{"code":"` + code + `","watchInstallationId":"` + watchInstallationID + `"}`
-	request := httptest.NewRequest(http.MethodPost, "/v1/watch/pairings/claim", bytes.NewBufferString(payload))
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/watch/pairings/claim",
+		bytes.NewBufferString(`{"code":"`+code+`","watchInstallationId":"`+watchInstallationID+`"}`),
+	)
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
 	handler.Routes().ServeHTTP(recorder, request)
@@ -404,58 +249,24 @@ func claimWatchCode(t *testing.T, handler *Handler, code string, watchInstallati
 		t.Fatalf("POST /v1/watch/pairings/claim returned %d, want %d body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
 	}
 
-	var response claimWatchPairingResponse
+	var response watchClaimResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode claim watch code response: %v", err)
+		t.Fatalf("decode watch claim response: %v", err)
+	}
+	if response.WatchSessionToken == "" {
+		t.Fatalf("watch claim response missing watchSessionToken")
+	}
+	if response.ChannelID == "" {
+		t.Fatalf("watch claim response missing channelId")
 	}
 	return response
 }
 
-func getPairingStatus(t *testing.T, handler *Handler, installationToken string, pairingID string) pairingStatusResponse {
-	t.Helper()
-
-	request := httptest.NewRequest(http.MethodGet, "/v1/pairings/"+pairingID, nil)
-	request.SetPathValue("pairingID", pairingID)
-	request.Header.Set("Authorization", "Bearer "+installationToken)
-	recorder := httptest.NewRecorder()
-	handler.Routes().ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("GET /v1/pairings/%s returned %d, want %d", pairingID, recorder.Code, http.StatusOK)
-	}
-
-	var response pairingStatusResponse
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode pairing status response: %v", err)
-	}
-	return response
-}
-
-func claimPairing(t *testing.T, handler *Handler, pairingToken string, phoneInstallationID string, pushToken string) claimPairingResponse {
-	t.Helper()
-
-	payload := `{"pairingToken":"` + pairingToken + `","phoneInstallationId":"` + phoneInstallationID + `","pushToken":"` + pushToken + `"}`
-	request := httptest.NewRequest(http.MethodPost, "/v1/pairings/claim", bytes.NewBufferString(payload))
-	request.Header.Set("Content-Type", "application/json")
-	recorder := httptest.NewRecorder()
-	handler.Routes().ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("POST /v1/pairings/claim returned %d, want %d body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
-	}
-
-	var response claimPairingResponse
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode claim pairing response: %v", err)
-	}
-	return response
-}
-
-func createEvent(t *testing.T, handler *Handler, claudeToken string, payload string) createEventResponse {
+func createEvent(t *testing.T, handler *Handler, claudeSessionToken string, payload string) {
 	t.Helper()
 
 	request := httptest.NewRequest(http.MethodPost, "/v1/events", bytes.NewBufferString(payload))
-	request.Header.Set("Authorization", "Bearer "+claudeToken)
+	request.Header.Set("Authorization", "Bearer "+claudeSessionToken)
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
 	handler.Routes().ServeHTTP(recorder, request)
@@ -463,29 +274,23 @@ func createEvent(t *testing.T, handler *Handler, claudeToken string, payload str
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("POST /v1/events returned %d, want %d body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
 	}
-
-	var response createEventResponse
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode create event response: %v", err)
-	}
-	return response
 }
 
-func getStatus(t *testing.T, handler *Handler, phoneToken string) statusResponse {
+func getEvents(t *testing.T, handler *Handler, watchSessionToken string, since int64) eventListResponse {
 	t.Helper()
 
-	request := httptest.NewRequest(http.MethodGet, "/v1/status", nil)
-	request.Header.Set("Authorization", "Bearer "+phoneToken)
+	request := httptest.NewRequest(http.MethodGet, "/v1/events?since=0", nil)
+	request.Header.Set("Authorization", "Bearer "+watchSessionToken)
 	recorder := httptest.NewRecorder()
 	handler.Routes().ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusOK {
-		t.Fatalf("GET /v1/status returned %d, want %d body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
+		t.Fatalf("GET /v1/events returned %d, want %d body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
 	}
 
-	var response statusResponse
+	var response eventListResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode status response: %v", err)
+		t.Fatalf("decode events response: %v", err)
 	}
 	return response
 }

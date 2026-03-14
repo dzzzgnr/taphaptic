@@ -1,6 +1,6 @@
-name: AgentWatch
+name: Taphaptic
 options:
-  bundleIdPrefix: local.agentwatch
+  bundleIdPrefix: local.taphaptic
   createIntermediateGroups: true
 settings:
   base:
@@ -8,7 +8,7 @@ settings:
     MARKETING_VERSION: 0.1.0
     CURRENT_PROJECT_VERSION: 1
 targets:
-  AgentWatch:
+  Taphaptic:
     type: application
     platform: watchOS
     deploymentTarget: "11.0"
@@ -17,16 +17,20 @@ targets:
       - path: shared
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: local.agentwatch.watch
-        PRODUCT_NAME: AgentWatch
+        PRODUCT_BUNDLE_IDENTIFIER: local.taphaptic.watch
+        PRODUCT_NAME: Taphaptic
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: AgentWatch
+        INFOPLIST_KEY_CFBundleDisplayName: Taphaptic
+        INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking: YES
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: Taphaptic discovers your Mac on the local network for pairing.
+        INFOPLIST_KEY_NSBonjourServices:
+          - _taphaptic._tcp
         INFOPLIST_KEY_WKApplication: YES
         INFOPLIST_KEY_WKWatchOnly: YES
         CODE_SIGN_STYLE: Automatic
         TARGETED_DEVICE_FAMILY: "4"
         SDKROOT: watchos
-  AgentWatchSharedTests:
+  TaphapticSharedTests:
     type: bundle.unit-test
     platform: macOS
     deploymentTarget: "14.0"
@@ -35,16 +39,16 @@ targets:
       - path: tests/swift
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: local.agentwatch.sharedtests
-        PRODUCT_NAME: AgentWatchSharedTests
+        PRODUCT_BUNDLE_IDENTIFIER: local.taphaptic.sharedtests
+        PRODUCT_NAME: TaphapticSharedTests
         GENERATE_INFOPLIST_FILE: YES
     scheme:
       gatherCoverageData: false
 schemes:
-  AgentWatch:
+  Taphaptic:
     build:
       targets:
-        AgentWatch: all
+        Taphaptic: all
     run:
       config: Debug
       debugEnabled: false
@@ -52,20 +56,20 @@ schemes:
       disableThreadPerformanceChecker: true
     test:
       gatherCoverageData: false
-  AgentWatchLLDB:
+  TaphapticLLDB:
     build:
       targets:
-        AgentWatch: all
+        Taphaptic: all
     run:
       config: Debug
       debugEnabled: true
     test:
       gatherCoverageData: false
-  AgentWatchRegressionTests:
+  TaphapticRegressionTests:
     build:
       targets:
-        AgentWatchSharedTests: all
+        TaphapticSharedTests: all
     test:
       gatherCoverageData: false
       targets:
-        - name: AgentWatchSharedTests
+        - name: TaphapticSharedTests

@@ -22,7 +22,7 @@ func TestCreateAndClaimCode(t *testing.T) {
 	if pairing.ID == "" || code == "" {
 		t.Fatalf("Create returned empty values: %+v code=%q", pairing, code)
 	}
-	if len(code) != 6 {
+	if len(code) != 4 {
 		t.Fatalf("Create returned wrong code length: %d", len(code))
 	}
 	if strings.TrimSpace(pairing.CodeHash) == "" {
