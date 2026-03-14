@@ -1,4 +1,6 @@
 #!/bin/sh
+# Deprecated: historical installer only.
+# Supported flow uses scripts/install-claude-hook.sh and cmd/taphapticctl.
 
 set -eu
 umask 077
