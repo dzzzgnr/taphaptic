@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"agentwatch/internal/channels"
-	"agentwatch/internal/events"
-	"agentwatch/internal/installations"
-	"agentwatch/internal/watchpairings"
+	"taphaptic/internal/channels"
+	"taphaptic/internal/events"
+	"taphaptic/internal/installations"
+	"taphaptic/internal/watchpairings"
 )
 
 const (

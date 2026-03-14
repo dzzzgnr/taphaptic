@@ -1,7 +1,7 @@
  import SwiftUI
 
 struct ContentView: View {
-    @EnvironmentObject private var model: AgentWatchModel
+    @EnvironmentObject private var model: TaphapticModel
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @State private var completedPulse = false
@@ -733,7 +733,7 @@ struct ContentView: View {
 }
 
 private struct WatchSettingsView: View {
-    @EnvironmentObject private var model: AgentWatchModel
+    @EnvironmentObject private var model: TaphapticModel
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -781,5 +781,5 @@ private enum PairingKey: Equatable {
 
 #Preview {
     ContentView()
-        .environmentObject(AgentWatchModel())
+        .environmentObject(TaphapticModel())
 }

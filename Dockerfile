@@ -8,18 +8,18 @@ RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o /out/agentwatch-api ./cmd/agentwatch-api
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o /out/taphaptic-api ./cmd/taphaptic-api
 
 FROM alpine:3.20
 
 RUN apk add --no-cache ca-certificates
 
 WORKDIR /app
-COPY --from=build /out/agentwatch-api /app/agentwatch-api
+COPY --from=build /out/taphaptic-api /app/taphaptic-api
 
 ENV PORT=8080
-ENV AGENTWATCH_DATA_DIR=/data
+ENV TAPHAPTIC_DATA_DIR=/data
 
 EXPOSE 8080
 
-ENTRYPOINT ["/app/agentwatch-api"]
+ENTRYPOINT ["/app/taphaptic-api"]

@@ -17,7 +17,7 @@ go test ./...
 2. Build local API:
 
 ```sh
-./scripts/build-agentwatch-api.sh
+./scripts/build-taphaptic-api.sh
 ```
 
 3. Build watch app:

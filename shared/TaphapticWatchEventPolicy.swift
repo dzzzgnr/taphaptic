@@ -1,18 +1,18 @@
 import Foundation
 
-struct AgentWatchWatchEventPolicyConfig: Equatable {
+struct TaphapticWatchEventPolicyConfig: Equatable {
     let completedAnimationSeconds: TimeInterval
     let transientDisplayWindowSeconds: TimeInterval
     let staleEventMaxAgeSeconds: TimeInterval
 
-    static let defaults = AgentWatchWatchEventPolicyConfig(
+    static let defaults = TaphapticWatchEventPolicyConfig(
         completedAnimationSeconds: 1.25,
         transientDisplayWindowSeconds: 10,
         staleEventMaxAgeSeconds: 20
     )
 }
 
-struct AgentWatchWatchEventPolicyState: Equatable {
+struct TaphapticWatchEventPolicyState: Equatable {
     var lastSeenEventID: Int64
     var activeEventID: Int64?
     var activeEventExpiresAt: Date?
@@ -36,80 +36,80 @@ struct AgentWatchWatchEventPolicyState: Equatable {
     }
 }
 
-enum AgentWatchWatchEventHapticPlan: Equatable {
+enum TaphapticWatchEventHapticPlan: Equatable {
     case none
-    case immediate(AgentWatchEventType)
-    case delayed(AgentWatchEventType, TimeInterval)
+    case immediate(TaphapticEventType)
+    case delayed(TaphapticEventType, TimeInterval)
 }
 
-struct AgentWatchWatchEventPresentation: Equatable {
+struct TaphapticWatchEventPresentation: Equatable {
     let eventID: Int64
-    let eventType: AgentWatchEventType
+    let eventType: TaphapticEventType
     let detailText: String
     let animateCompleted: Bool
-    let hapticPlan: AgentWatchWatchEventHapticPlan
+    let hapticPlan: TaphapticWatchEventHapticPlan
     let expiresAt: Date
 }
 
-enum AgentWatchWatchEventPolicyAction: Equatable {
+enum TaphapticWatchEventPolicyAction: Equatable {
     case noChange
     case showPending
-    case showEvent(AgentWatchWatchEventPresentation)
+    case showEvent(TaphapticWatchEventPresentation)
 }
 
-struct AgentWatchWatchEventPolicyResult: Equatable {
-    let state: AgentWatchWatchEventPolicyState
-    let action: AgentWatchWatchEventPolicyAction
+struct TaphapticWatchEventPolicyResult: Equatable {
+    let state: TaphapticWatchEventPolicyState
+    let action: TaphapticWatchEventPolicyAction
 }
 
-enum AgentWatchWatchEventPolicy {
+enum TaphapticWatchEventPolicy {
     static func apply(
-        event: AgentWatchEvent,
-        state: AgentWatchWatchEventPolicyState,
+        event: TaphapticEvent,
+        state: TaphapticWatchEventPolicyState,
         now: Date,
-        config: AgentWatchWatchEventPolicyConfig = .defaults
-    ) -> AgentWatchWatchEventPolicyResult {
+        config: TaphapticWatchEventPolicyConfig = .defaults
+    ) -> TaphapticWatchEventPolicyResult {
         var nextState = state
         nextState.clearExpiredActiveState(at: now)
 
         if event.id < nextState.lastSeenEventID {
             if nextState.isActive(at: now) {
-                return AgentWatchWatchEventPolicyResult(state: nextState, action: .noChange)
+                return TaphapticWatchEventPolicyResult(state: nextState, action: .noChange)
             }
-            return AgentWatchWatchEventPolicyResult(state: nextState, action: .showPending)
+            return TaphapticWatchEventPolicyResult(state: nextState, action: .showPending)
         }
 
         if event.id == nextState.activeEventID, nextState.isActive(at: now) {
-            return AgentWatchWatchEventPolicyResult(state: nextState, action: .noChange)
+            return TaphapticWatchEventPolicyResult(state: nextState, action: .noChange)
         }
 
         guard event.id > nextState.lastSeenEventID else {
             if nextState.isActive(at: now) {
-                return AgentWatchWatchEventPolicyResult(state: nextState, action: .noChange)
+                return TaphapticWatchEventPolicyResult(state: nextState, action: .noChange)
             }
-            return AgentWatchWatchEventPolicyResult(state: nextState, action: .showPending)
+            return TaphapticWatchEventPolicyResult(state: nextState, action: .showPending)
         }
 
         let age = now.timeIntervalSince(event.createdAt)
         if age > config.staleEventMaxAgeSeconds {
             nextState.lastSeenEventID = event.id
             if nextState.isActive(at: now) {
-                return AgentWatchWatchEventPolicyResult(state: nextState, action: .noChange)
+                return TaphapticWatchEventPolicyResult(state: nextState, action: .noChange)
             }
-            return AgentWatchWatchEventPolicyResult(state: nextState, action: .showPending)
+            return TaphapticWatchEventPolicyResult(state: nextState, action: .showPending)
         }
 
         nextState.lastSeenEventID = event.id
         nextState.activeEventID = event.id
 
-        let presentation: AgentWatchWatchEventPresentation
+        let presentation: TaphapticWatchEventPresentation
         switch event.type {
         case .completed:
             let expiresAt = now
                 .addingTimeInterval(config.completedAnimationSeconds)
                 .addingTimeInterval(config.transientDisplayWindowSeconds)
             nextState.activeEventExpiresAt = expiresAt
-            presentation = AgentWatchWatchEventPresentation(
+            presentation = TaphapticWatchEventPresentation(
                 eventID: event.id,
                 eventType: event.type,
                 detailText: event.resolvedBody,
@@ -122,7 +122,7 @@ enum AgentWatchWatchEventPolicy {
                 .addingTimeInterval(config.completedAnimationSeconds)
                 .addingTimeInterval(config.transientDisplayWindowSeconds)
             nextState.activeEventExpiresAt = expiresAt
-            presentation = AgentWatchWatchEventPresentation(
+            presentation = TaphapticWatchEventPresentation(
                 eventID: event.id,
                 eventType: event.type,
                 detailText: event.resolvedBody,
@@ -133,7 +133,7 @@ enum AgentWatchWatchEventPolicy {
         case .failed:
             let expiresAt = now.addingTimeInterval(config.transientDisplayWindowSeconds)
             nextState.activeEventExpiresAt = expiresAt
-            presentation = AgentWatchWatchEventPresentation(
+            presentation = TaphapticWatchEventPresentation(
                 eventID: event.id,
                 eventType: event.type,
                 detailText: event.resolvedBody,
@@ -144,7 +144,7 @@ enum AgentWatchWatchEventPolicy {
         case .attention:
             let expiresAt = now.addingTimeInterval(config.transientDisplayWindowSeconds)
             nextState.activeEventExpiresAt = expiresAt
-            presentation = AgentWatchWatchEventPresentation(
+            presentation = TaphapticWatchEventPresentation(
                 eventID: event.id,
                 eventType: event.type,
                 detailText: event.resolvedBody,
@@ -154,18 +154,18 @@ enum AgentWatchWatchEventPolicy {
             )
         }
 
-        return AgentWatchWatchEventPolicyResult(state: nextState, action: .showEvent(presentation))
+        return TaphapticWatchEventPolicyResult(state: nextState, action: .showEvent(presentation))
     }
 
     static func applyPending(
-        state: AgentWatchWatchEventPolicyState,
+        state: TaphapticWatchEventPolicyState,
         now: Date
-    ) -> AgentWatchWatchEventPolicyResult {
+    ) -> TaphapticWatchEventPolicyResult {
         var nextState = state
         nextState.clearExpiredActiveState(at: now)
         if nextState.isActive(at: now) {
-            return AgentWatchWatchEventPolicyResult(state: nextState, action: .noChange)
+            return TaphapticWatchEventPolicyResult(state: nextState, action: .noChange)
         }
-        return AgentWatchWatchEventPolicyResult(state: nextState, action: .showPending)
+        return TaphapticWatchEventPolicyResult(state: nextState, action: .showPending)
     }
 }

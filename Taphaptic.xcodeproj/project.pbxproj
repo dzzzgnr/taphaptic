@@ -7,42 +7,42 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1D35693191E0FA41A9CDC61D /* AgentWatchCursorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D9F1CDC9A6C3F223836193 /* AgentWatchCursorStore.swift */; };
-		1F5885823C4908409022B189 /* AgentWatchSharedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AC577E120CAE1CAE1077845 /* AgentWatchSharedModels.swift */; };
-		28A6BE18C79282E6A37EBBB5 /* AgentWatchWatchEventPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2A8F87A2F0A4FA142656DD1 /* AgentWatchWatchEventPolicy.swift */; };
+		0EFC4E7EBF9CEA224E34F59B /* TaphapticSharedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66CED5F91B5B592C2C97F1B2 /* TaphapticSharedModels.swift */; };
+		238546A4E03C24356FC9943D /* TaphapticModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDDBBF7D9469AA4346EB32FE /* TaphapticModel.swift */; };
 		2A7820C15349200EB02E5803 /* TaphapticServiceDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF20D4F2ABA944087F2BE99E /* TaphapticServiceDiscovery.swift */; };
-		361448E1984321B62C307612 /* AgentWatchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8B55F68279682091E3EB5D0 /* AgentWatchModel.swift */; };
-		4EAB4C7811BAEB26031658F7 /* AgentWatchCursorStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6257E572A610F4933945BD7 /* AgentWatchCursorStoreTests.swift */; };
-		637FE1F80E78B4B06682DB26 /* AgentWatchWatchEventPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B35BC3CC7429F4ADEFE0BF3F /* AgentWatchWatchEventPolicyTests.swift */; };
-		A8ADC21BEAF2259008FF7286 /* AgentWatchCursorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62D9F1CDC9A6C3F223836193 /* AgentWatchCursorStore.swift */; };
-		B937B0C0B59BE4CFBA471A3B /* AgentWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62D5844C01332BFF685D796 /* AgentWatchApp.swift */; };
-		D61A66350D85F8D776B5A8AD /* AgentWatchSharedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AC577E120CAE1CAE1077845 /* AgentWatchSharedModels.swift */; };
+		3E47BEF6E1539658FA33975F /* TaphapticCursorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A64DC3D6CD90413AFEE58E0 /* TaphapticCursorStore.swift */; };
+		5720CD4B075F77C323716DE5 /* TaphapticSharedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66CED5F91B5B592C2C97F1B2 /* TaphapticSharedModels.swift */; };
+		8596311FCA274AA0667AD58A /* TaphapticWatchEventPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B5E151383287C488F67089 /* TaphapticWatchEventPolicyTests.swift */; };
+		9ED156943551E1C5A592A737 /* TaphapticWatchEventPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84026B091CCA72BCE49593D1 /* TaphapticWatchEventPolicy.swift */; };
+		A9A84CF268817B1CD928505F /* TaphapticWatchEventPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84026B091CCA72BCE49593D1 /* TaphapticWatchEventPolicy.swift */; };
+		AF551AA7FEE6B3F91E928228 /* TaphapticApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDA1C59A34190840D2584013 /* TaphapticApp.swift */; };
+		BC0EFB10A6903FAF7888B26C /* TaphapticCursorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A64DC3D6CD90413AFEE58E0 /* TaphapticCursorStore.swift */; };
+		CA8DFF985C1B71C8ADB8AC5B /* TaphapticCursorStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F07713291BE7658824C3A820 /* TaphapticCursorStoreTests.swift */; };
 		D69B958F5D94D2C6AF355E36 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 988EA82B7250B4D755851D76 /* ContentView.swift */; };
-		EE3B578DB2FBCAF540E3BE98 /* AgentWatchWatchEventPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2A8F87A2F0A4FA142656DD1 /* AgentWatchWatchEventPolicy.swift */; };
 		F36E306919876DCF4459433D /* BlurTextTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53FD74ECCFCD3F657C4C1FE0 /* BlurTextTransition.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		53FD74ECCFCD3F657C4C1FE0 /* BlurTextTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlurTextTransition.swift; sourceTree = "<group>"; };
-		5AC577E120CAE1CAE1077845 /* AgentWatchSharedModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWatchSharedModels.swift; sourceTree = "<group>"; };
-		62D9F1CDC9A6C3F223836193 /* AgentWatchCursorStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWatchCursorStore.swift; sourceTree = "<group>"; };
+		66CED5F91B5B592C2C97F1B2 /* TaphapticSharedModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaphapticSharedModels.swift; sourceTree = "<group>"; };
 		6CE8BE767D0EFDC05738DF3C /* Taphaptic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Taphaptic.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A64DC3D6CD90413AFEE58E0 /* TaphapticCursorStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaphapticCursorStore.swift; sourceTree = "<group>"; };
+		84026B091CCA72BCE49593D1 /* TaphapticWatchEventPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaphapticWatchEventPolicy.swift; sourceTree = "<group>"; };
 		988EA82B7250B4D755851D76 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		B35BC3CC7429F4ADEFE0BF3F /* AgentWatchWatchEventPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWatchWatchEventPolicyTests.swift; sourceTree = "<group>"; };
-		B8B55F68279682091E3EB5D0 /* AgentWatchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWatchModel.swift; sourceTree = "<group>"; };
+		B2B5E151383287C488F67089 /* TaphapticWatchEventPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaphapticWatchEventPolicyTests.swift; sourceTree = "<group>"; };
+		BDA1C59A34190840D2584013 /* TaphapticApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaphapticApp.swift; sourceTree = "<group>"; };
+		BDDBBF7D9469AA4346EB32FE /* TaphapticModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaphapticModel.swift; sourceTree = "<group>"; };
 		BFD3E229C0241686AC5FDF18 /* TaphapticSharedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TaphapticSharedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		C2A8F87A2F0A4FA142656DD1 /* AgentWatchWatchEventPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWatchWatchEventPolicy.swift; sourceTree = "<group>"; };
 		DF20D4F2ABA944087F2BE99E /* TaphapticServiceDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaphapticServiceDiscovery.swift; sourceTree = "<group>"; };
-		E6257E572A610F4933945BD7 /* AgentWatchCursorStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWatchCursorStoreTests.swift; sourceTree = "<group>"; };
-		E62D5844C01332BFF685D796 /* AgentWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWatchApp.swift; sourceTree = "<group>"; };
+		F07713291BE7658824C3A820 /* TaphapticCursorStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaphapticCursorStoreTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
 		0590A84FDC846A2E5C6A4ED3 /* swift */ = {
 			isa = PBXGroup;
 			children = (
-				E6257E572A610F4933945BD7 /* AgentWatchCursorStoreTests.swift */,
-				B35BC3CC7429F4ADEFE0BF3F /* AgentWatchWatchEventPolicyTests.swift */,
+				F07713291BE7658824C3A820 /* TaphapticCursorStoreTests.swift */,
+				B2B5E151383287C488F67089 /* TaphapticWatchEventPolicyTests.swift */,
 			);
 			path = swift;
 			sourceTree = "<group>";
@@ -58,10 +58,10 @@
 		67857B20C449EB5B0F1FC9CA /* watch-app */ = {
 			isa = PBXGroup;
 			children = (
-				E62D5844C01332BFF685D796 /* AgentWatchApp.swift */,
-				B8B55F68279682091E3EB5D0 /* AgentWatchModel.swift */,
 				53FD74ECCFCD3F657C4C1FE0 /* BlurTextTransition.swift */,
 				988EA82B7250B4D755851D76 /* ContentView.swift */,
+				BDA1C59A34190840D2584013 /* TaphapticApp.swift */,
+				BDDBBF7D9469AA4346EB32FE /* TaphapticModel.swift */,
 				DF20D4F2ABA944087F2BE99E /* TaphapticServiceDiscovery.swift */,
 			);
 			path = "watch-app";
@@ -79,9 +79,9 @@
 		A8C8E64E5F359598F4868093 /* shared */ = {
 			isa = PBXGroup;
 			children = (
-				62D9F1CDC9A6C3F223836193 /* AgentWatchCursorStore.swift */,
-				5AC577E120CAE1CAE1077845 /* AgentWatchSharedModels.swift */,
-				C2A8F87A2F0A4FA142656DD1 /* AgentWatchWatchEventPolicy.swift */,
+				7A64DC3D6CD90413AFEE58E0 /* TaphapticCursorStore.swift */,
+				66CED5F91B5B592C2C97F1B2 /* TaphapticSharedModels.swift */,
+				84026B091CCA72BCE49593D1 /* TaphapticWatchEventPolicy.swift */,
 			);
 			path = shared;
 			sourceTree = "<group>";
@@ -172,14 +172,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B937B0C0B59BE4CFBA471A3B /* AgentWatchApp.swift in Sources */,
-				A8ADC21BEAF2259008FF7286 /* AgentWatchCursorStore.swift in Sources */,
-				361448E1984321B62C307612 /* AgentWatchModel.swift in Sources */,
-				D61A66350D85F8D776B5A8AD /* AgentWatchSharedModels.swift in Sources */,
-				EE3B578DB2FBCAF540E3BE98 /* AgentWatchWatchEventPolicy.swift in Sources */,
 				F36E306919876DCF4459433D /* BlurTextTransition.swift in Sources */,
 				D69B958F5D94D2C6AF355E36 /* ContentView.swift in Sources */,
+				AF551AA7FEE6B3F91E928228 /* TaphapticApp.swift in Sources */,
+				3E47BEF6E1539658FA33975F /* TaphapticCursorStore.swift in Sources */,
+				238546A4E03C24356FC9943D /* TaphapticModel.swift in Sources */,
 				2A7820C15349200EB02E5803 /* TaphapticServiceDiscovery.swift in Sources */,
+				5720CD4B075F77C323716DE5 /* TaphapticSharedModels.swift in Sources */,
+				A9A84CF268817B1CD928505F /* TaphapticWatchEventPolicy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -187,11 +187,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1D35693191E0FA41A9CDC61D /* AgentWatchCursorStore.swift in Sources */,
-				4EAB4C7811BAEB26031658F7 /* AgentWatchCursorStoreTests.swift in Sources */,
-				1F5885823C4908409022B189 /* AgentWatchSharedModels.swift in Sources */,
-				28A6BE18C79282E6A37EBBB5 /* AgentWatchWatchEventPolicy.swift in Sources */,
-				637FE1F80E78B4B06682DB26 /* AgentWatchWatchEventPolicyTests.swift in Sources */,
+				BC0EFB10A6903FAF7888B26C /* TaphapticCursorStore.swift in Sources */,
+				CA8DFF985C1B71C8ADB8AC5B /* TaphapticCursorStoreTests.swift in Sources */,
+				0EFC4E7EBF9CEA224E34F59B /* TaphapticSharedModels.swift in Sources */,
+				9ED156943551E1C5A592A737 /* TaphapticWatchEventPolicy.swift in Sources */,
+				8596311FCA274AA0667AD58A /* TaphapticWatchEventPolicyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

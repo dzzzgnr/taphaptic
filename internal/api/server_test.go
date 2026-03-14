@@ -7,10 +7,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"agentwatch/internal/channels"
-	"agentwatch/internal/events"
-	"agentwatch/internal/installations"
-	"agentwatch/internal/watchpairings"
+	"taphaptic/internal/channels"
+	"taphaptic/internal/events"
+	"taphaptic/internal/installations"
+	"taphaptic/internal/watchpairings"
 )
 
 func TestHealthzDoesNotRequireAuth(t *testing.T) {

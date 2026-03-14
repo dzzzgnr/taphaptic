@@ -4,7 +4,7 @@ import SwiftUI
 import WatchKit
 
 @MainActor
-final class AgentWatchModel: ObservableObject {
+final class TaphapticModel: ObservableObject {
     private static let pairingCodeLength = 4
 
     enum PairingState: Equatable {
@@ -87,14 +87,14 @@ final class AgentWatchModel: ObservableObject {
     }
 
     private enum StorageKeys {
-        static let lastWatchEventID = "agentwatchLastWatchEventID"
-        static let lastTerminalActivityAt = "agentwatchLastTerminalActivityAt"
-        static let watchSessionToken = "agentwatchWatchSessionToken"
-        static let watchInstallationID = "agentwatchWatchInstallationID"
-        static let channelID = "agentwatchWatchChannelID"
-        static let cloudAPIBaseURL = "agentwatchCloudAPIBaseURL"
-        static let watchSoundEnabled = "agentwatchWatchSoundEnabled"
-        static let watchHapticEnabled = "agentwatchWatchHapticEnabled"
+        static let lastWatchEventID = "taphapticLastWatchEventID"
+        static let lastTerminalActivityAt = "taphapticLastTerminalActivityAt"
+        static let watchSessionToken = "taphapticWatchSessionToken"
+        static let watchInstallationID = "taphapticWatchInstallationID"
+        static let channelID = "taphapticWatchChannelID"
+        static let cloudAPIBaseURL = "taphapticCloudAPIBaseURL"
+        static let watchSoundEnabled = "taphapticWatchSoundEnabled"
+        static let watchHapticEnabled = "taphapticWatchHapticEnabled"
     }
 
     private enum RequestError: Error {
@@ -394,7 +394,7 @@ final class AgentWatchModel: ObservableObject {
         showPendingStatus("Enter 4-digit code")
     }
 
-    private func applyEvent(_ event: AgentWatchEvent) {
+    private func applyEvent(_ event: TaphapticEvent) {
         let now = Date()
         let maxAgeDate = now.addingTimeInterval(-staleEventMaxAgeSeconds)
         if event.id <= lastWatchEventID {
@@ -468,7 +468,7 @@ final class AgentWatchModel: ObservableObject {
                 }
             }
 
-            let response: AgentWatchEventsResponse = try await fetchEvents(
+            let response: TaphapticEventsResponse = try await fetchEvents(
                 url: eventsURL,
                 bearerToken: sessionToken
             )
@@ -529,7 +529,7 @@ final class AgentWatchModel: ObservableObject {
         }
     }
 
-    private func fetchEvents(url: URL, bearerToken: String) async throws -> AgentWatchEventsResponse {
+    private func fetchEvents(url: URL, bearerToken: String) async throws -> TaphapticEventsResponse {
         var request = URLRequest(url: url)
         request.timeoutInterval = 5
         request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
@@ -541,7 +541,7 @@ final class AgentWatchModel: ObservableObject {
 
         switch httpResponse.statusCode {
         case 200:
-            return try decoder.decode(AgentWatchEventsResponse.self, from: data)
+            return try decoder.decode(TaphapticEventsResponse.self, from: data)
         case 401:
             throw RequestError.unauthorized
         default:
@@ -549,7 +549,7 @@ final class AgentWatchModel: ObservableObject {
         }
     }
 
-    private func displayState(for eventType: AgentWatchEventType) -> DisplayState {
+    private func displayState(for eventType: TaphapticEventType) -> DisplayState {
         switch eventType {
         case .completed:
             return .success
@@ -562,7 +562,7 @@ final class AgentWatchModel: ObservableObject {
         }
     }
 
-    private func playAlertFeedback(for eventType: AgentWatchEventType) {
+    private func playAlertFeedback(for eventType: TaphapticEventType) {
         if eventType == .completed {
             playCompletedFeedback()
             return
@@ -593,7 +593,7 @@ final class AgentWatchModel: ObservableObject {
         }
     }
 
-    private func playHaptic(for eventType: AgentWatchEventType) {
+    private func playHaptic(for eventType: TaphapticEventType) {
         let hapticType: WKHapticType
         switch eventType {
         case .completed:
@@ -609,7 +609,7 @@ final class AgentWatchModel: ObservableObject {
         WKInterfaceDevice.current().play(hapticType)
     }
 
-    private func playSound(for eventType: AgentWatchEventType) {
+    private func playSound(for eventType: TaphapticEventType) {
         let utterance = AVSpeechUtterance(string: spokenAlertText(for: eventType))
         utterance.rate = 0.46
         utterance.pitchMultiplier = pitch(for: eventType)
@@ -618,7 +618,7 @@ final class AgentWatchModel: ObservableObject {
         speechSynthesizer.speak(utterance)
     }
 
-    private func spokenAlertText(for eventType: AgentWatchEventType) -> String {
+    private func spokenAlertText(for eventType: TaphapticEventType) -> String {
         switch eventType {
         case .completed:
             return "Agent completed a task."
@@ -631,7 +631,7 @@ final class AgentWatchModel: ObservableObject {
         }
     }
 
-    private func normalizedDetailText(for event: AgentWatchEvent) -> String {
+    private func normalizedDetailText(for event: TaphapticEvent) -> String {
         if event.type == .completed {
             return randomCompletionTitle()
         }
@@ -655,7 +655,7 @@ final class AgentWatchModel: ObservableObject {
         return selected
     }
 
-    private func pitch(for eventType: AgentWatchEventType) -> Float {
+    private func pitch(for eventType: TaphapticEventType) -> Float {
         switch eventType {
         case .completed:
             return 1.1
@@ -910,13 +910,6 @@ final class AgentWatchModel: ObservableObject {
         if !fromTaphapticEnvironment.isEmpty, let url = URL(string: fromTaphapticEnvironment) {
             return url
         }
-
-        let fromLegacyEnvironment = (ProcessInfo.processInfo.environment["AGENTWATCH_API_BASE_URL"] ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        if !fromLegacyEnvironment.isEmpty, let url = URL(string: fromLegacyEnvironment) {
-            return url
-        }
-
         return nil
     }
 

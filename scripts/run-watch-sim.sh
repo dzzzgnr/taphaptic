@@ -5,15 +5,6 @@ set -eu
 repo_root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 bundle_id="local.taphaptic.watch"
 device_id="${WATCH_SIM_DEVICE_ID:-}"
-paired_phone_id=""
-
-if [ -z "$device_id" ]; then
-  if pair_ids="$("$repo_root/scripts/find-sim-pair.sh" 2>/dev/null)"; then
-    set -- $pair_ids
-    paired_phone_id="${1:-}"
-    device_id="${2:-}"
-  fi
-fi
 
 if [ -z "$device_id" ]; then
   device_id="$(xcrun simctl list devices available | awk '
@@ -41,13 +32,7 @@ fi
 
 open -a Simulator
 xcrun simctl boot "$device_id" >/dev/null 2>&1 || true
-if [ -n "$paired_phone_id" ]; then
-  xcrun simctl boot "$paired_phone_id" >/dev/null 2>&1 || true
-fi
 xcrun simctl bootstatus "$device_id" -b
-if [ -n "$paired_phone_id" ]; then
-  xcrun simctl bootstatus "$paired_phone_id" -b
-fi
 xcrun simctl uninstall "$device_id" "$bundle_id" >/dev/null 2>&1 || true
 xcrun simctl install "$device_id" "$app_path"
 

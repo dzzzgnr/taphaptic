@@ -1,6 +1,6 @@
 import Foundation
 
-enum AgentWatchCursorStore {
+enum TaphapticCursorStore {
     // Unix milliseconds around Sep 2001; current IDs should be much larger.
     static let plausibleUnixMillisecondsLowerBound: Int64 = 1_000_000_000_000
 

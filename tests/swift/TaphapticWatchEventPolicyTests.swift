@@ -1,20 +1,20 @@
 import Foundation
 import XCTest
 
-final class AgentWatchWatchEventPolicyTests: XCTestCase {
-    private let config = AgentWatchWatchEventPolicyConfig.defaults
+final class TaphapticWatchEventPolicyTests: XCTestCase {
+    private let config = TaphapticWatchEventPolicyConfig.defaults
 
     func testSameEventIDDoesNotReplayWhileActive() {
         let now = Date(timeIntervalSince1970: 1_772_713_000)
         let event = makeEvent(id: 1_772_712_975_044, type: .completed, createdAt: now)
 
-        let first = AgentWatchWatchEventPolicy.apply(
+        let first = TaphapticWatchEventPolicy.apply(
             event: event,
             state: makeInitialState(),
             now: now,
             config: config
         )
-        let second = AgentWatchWatchEventPolicy.apply(
+        let second = TaphapticWatchEventPolicy.apply(
             event: event,
             state: first.state,
             now: now.addingTimeInterval(2),
@@ -33,7 +33,7 @@ final class AgentWatchWatchEventPolicyTests: XCTestCase {
             createdAt: now.addingTimeInterval(-(config.staleEventMaxAgeSeconds + 5))
         )
 
-        let result = AgentWatchWatchEventPolicy.apply(
+        let result = TaphapticWatchEventPolicy.apply(
             event: staleEvent,
             state: makeInitialState(),
             now: now,
@@ -49,13 +49,13 @@ final class AgentWatchWatchEventPolicyTests: XCTestCase {
         let completedEvent = makeEvent(id: 1_772_712_975_100, type: .completed, createdAt: now)
         let failureEvent = makeEvent(id: 1_772_712_975_101, type: .failed, createdAt: now.addingTimeInterval(1))
 
-        let first = AgentWatchWatchEventPolicy.apply(
+        let first = TaphapticWatchEventPolicy.apply(
             event: completedEvent,
             state: makeInitialState(),
             now: now,
             config: config
         )
-        let second = AgentWatchWatchEventPolicy.apply(
+        let second = TaphapticWatchEventPolicy.apply(
             event: failureEvent,
             state: first.state,
             now: now.addingTimeInterval(1.5),
@@ -75,7 +75,7 @@ final class AgentWatchWatchEventPolicyTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_772_713_000)
         let event = makeEvent(id: 1_772_712_975_200, type: .completed, createdAt: now)
 
-        let result = AgentWatchWatchEventPolicy.apply(
+        let result = TaphapticWatchEventPolicy.apply(
             event: event,
             state: makeInitialState(),
             now: now,
@@ -102,18 +102,18 @@ final class AgentWatchWatchEventPolicyTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_772_713_000)
         let event = makeEvent(id: 1_772_712_975_300, type: .completed, createdAt: now)
 
-        let shown = AgentWatchWatchEventPolicy.apply(
+        let shown = TaphapticWatchEventPolicy.apply(
             event: event,
             state: makeInitialState(),
             now: now,
             config: config
         )
 
-        let beforeExpiry = AgentWatchWatchEventPolicy.applyPending(
+        let beforeExpiry = TaphapticWatchEventPolicy.applyPending(
             state: shown.state,
             now: now.addingTimeInterval(config.completedAnimationSeconds + config.transientDisplayWindowSeconds - 0.2)
         )
-        let afterExpiry = AgentWatchWatchEventPolicy.applyPending(
+        let afterExpiry = TaphapticWatchEventPolicy.applyPending(
             state: shown.state,
             now: now.addingTimeInterval(config.completedAnimationSeconds + config.transientDisplayWindowSeconds + 0.2)
         )
@@ -127,14 +127,14 @@ final class AgentWatchWatchEventPolicyTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_772_713_000)
         let event = makeEvent(id: 1_772_712_975_320, type: .completed, createdAt: now)
 
-        let shown = AgentWatchWatchEventPolicy.apply(
+        let shown = TaphapticWatchEventPolicy.apply(
             event: event,
             state: makeInitialState(),
             now: now,
             config: config
         )
 
-        let afterExpiry = AgentWatchWatchEventPolicy.apply(
+        let afterExpiry = TaphapticWatchEventPolicy.apply(
             event: event,
             state: shown.state,
             now: now.addingTimeInterval(config.completedAnimationSeconds + config.transientDisplayWindowSeconds + 0.2),
@@ -145,16 +145,16 @@ final class AgentWatchWatchEventPolicyTests: XCTestCase {
         XCTAssertNil(afterExpiry.state.activeEventID)
     }
 
-    private func makeInitialState() -> AgentWatchWatchEventPolicyState {
-        AgentWatchWatchEventPolicyState(
+    private func makeInitialState() -> TaphapticWatchEventPolicyState {
+        TaphapticWatchEventPolicyState(
             lastSeenEventID: 0,
             activeEventID: nil,
             activeEventExpiresAt: nil
         )
     }
 
-    private func makeEvent(id: Int64, type: AgentWatchEventType, createdAt: Date) -> AgentWatchEvent {
-        AgentWatchEvent(
+    private func makeEvent(id: Int64, type: TaphapticEventType, createdAt: Date) -> TaphapticEvent {
+        TaphapticEvent(
             id: id,
             type: type,
             createdAt: createdAt,

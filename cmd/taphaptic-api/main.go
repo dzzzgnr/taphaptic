@@ -17,11 +17,11 @@ import (
 	"syscall"
 	"time"
 
-	"agentwatch/internal/api"
-	"agentwatch/internal/channels"
-	"agentwatch/internal/events"
-	"agentwatch/internal/installations"
-	"agentwatch/internal/watchpairings"
+	"taphaptic/internal/api"
+	"taphaptic/internal/channels"
+	"taphaptic/internal/events"
+	"taphaptic/internal/installations"
+	"taphaptic/internal/watchpairings"
 )
 
 const (
@@ -146,10 +146,10 @@ func run(logger *log.Logger) error {
 }
 
 func loadConfig() (config, error) {
-	host := valueWithFallbacks(defaultHost, "TAPHAPTIC_BIND_HOST", "AGENTWATCH_BIND_HOST")
+	host := valueWithFallbacks(defaultHost, "TAPHAPTIC_BIND_HOST")
 
 	port := defaultPort
-	if rawPort := valueWithFallbacks("", "PORT", "TAPHAPTIC_PORT", "AGENTWATCH_PORT"); rawPort != "" {
+	if rawPort := valueWithFallbacks("", "PORT", "TAPHAPTIC_PORT"); rawPort != "" {
 		parsedPort, err := strconv.Atoi(rawPort)
 		if err != nil || parsedPort <= 0 || parsedPort > 65535 {
 			return config{}, fmt.Errorf("invalid port value %q", rawPort)
@@ -157,7 +157,7 @@ func loadConfig() (config, error) {
 		port = parsedPort
 	}
 
-	serviceName := strings.TrimSpace(valueWithFallbacks("", "TAPHAPTIC_SERVICE_NAME", "AGENTWATCH_SERVICE_NAME"))
+	serviceName := strings.TrimSpace(valueWithFallbacks("", "TAPHAPTIC_SERVICE_NAME"))
 	if serviceName == "" {
 		hostname, err := os.Hostname()
 		if err != nil || strings.TrimSpace(hostname) == "" {
@@ -167,7 +167,7 @@ func loadConfig() (config, error) {
 		}
 	}
 
-	dataDir := strings.TrimSpace(valueWithFallbacks("", "TAPHAPTIC_DATA_DIR", "AGENTWATCH_DATA_DIR"))
+	dataDir := strings.TrimSpace(valueWithFallbacks("", "TAPHAPTIC_DATA_DIR"))
 	if dataDir == "" {
 		userConfigDir, err := os.UserConfigDir()
 		if err != nil {
@@ -180,10 +180,10 @@ func loadConfig() (config, error) {
 		host:                   host,
 		port:                   port,
 		serviceName:            serviceName,
-		eventsStatePath:        statePathFromEnv(filepath.Join(dataDir, defaultEventsFileName), "TAPHAPTIC_EVENTS_FILE", "AGENTWATCH_EVENTS_FILE"),
-		channelsStatePath:      statePathFromEnv(filepath.Join(dataDir, defaultChannelsFileName), "TAPHAPTIC_CHANNELS_FILE", "AGENTWATCH_CHANNELS_FILE"),
-		installationsStatePath: statePathFromEnv(filepath.Join(dataDir, defaultInstallationsFileName), "TAPHAPTIC_INSTALLATIONS_FILE", "AGENTWATCH_INSTALLATIONS_FILE"),
-		watchCodesStatePath:    statePathFromEnv(filepath.Join(dataDir, defaultWatchCodesFileName), "TAPHAPTIC_WATCH_PAIRINGS_FILE", "AGENTWATCH_WATCH_PAIRINGS_FILE"),
+		eventsStatePath:        statePathFromEnv(filepath.Join(dataDir, defaultEventsFileName), "TAPHAPTIC_EVENTS_FILE"),
+		channelsStatePath:      statePathFromEnv(filepath.Join(dataDir, defaultChannelsFileName), "TAPHAPTIC_CHANNELS_FILE"),
+		installationsStatePath: statePathFromEnv(filepath.Join(dataDir, defaultInstallationsFileName), "TAPHAPTIC_INSTALLATIONS_FILE"),
+		watchCodesStatePath:    statePathFromEnv(filepath.Join(dataDir, defaultWatchCodesFileName), "TAPHAPTIC_WATCH_PAIRINGS_FILE"),
 	}, nil
 }
 

@@ -4,4 +4,7 @@ set -eu
 
 repo_root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 
-exec /bin/sh "$repo_root/scripts/build-agentwatch-api.sh"
+mkdir -p "$repo_root/bin"
+go build -o "$repo_root/bin/taphaptic-api" ./cmd/taphaptic-api
+
+printf '%s\n' "Built $repo_root/bin/taphaptic-api"

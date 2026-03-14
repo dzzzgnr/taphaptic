@@ -30,7 +30,7 @@ jobs:
         run: go test ./... -count=1
 
       - name: Build Local API
-        run: go build -o ./bin/taphaptic-api ./cmd/agentwatch-api
+        run: go build -o ./bin/taphaptic-api ./cmd/taphaptic-api
 
       - name: Run Local E2E Smoke
         run: ./scripts/smoke-local-e2e.sh

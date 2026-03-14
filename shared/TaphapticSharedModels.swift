@@ -1,6 +1,6 @@
 import Foundation
 
-enum AgentWatchEventType: String, Codable, CaseIterable, Sendable {
+enum TaphapticEventType: String, Codable, CaseIterable, Sendable {
     case completed
     case subagentCompleted = "subagent_completed"
     case failed
@@ -46,9 +46,9 @@ enum AgentWatchEventType: String, Codable, CaseIterable, Sendable {
     }
 }
 
-struct AgentWatchEvent: Codable, Equatable, Identifiable, Sendable {
+struct TaphapticEvent: Codable, Equatable, Identifiable, Sendable {
     let id: Int64
-    let type: AgentWatchEventType
+    let type: TaphapticEventType
     let createdAt: Date
     let source: String?
     let title: String?
@@ -65,32 +65,32 @@ struct AgentWatchEvent: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
-struct AgentWatchEventsResponse: Decodable, Sendable {
-    let events: [AgentWatchEvent]
+struct TaphapticEventsResponse: Decodable, Sendable {
+    let events: [TaphapticEvent]
 }
 
-struct AgentWatchStatusResponse: Decodable, Sendable {
-    let current: AgentWatchEvent?
+struct TaphapticStatusResponse: Decodable, Sendable {
+    let current: TaphapticEvent?
     let pushConfigured: Bool?
 }
 
-struct AgentWatchSyncPayload: Equatable, Sendable {
-    static let hasCurrentKey = "agentwatch.hasCurrent"
-    static let idKey = "agentwatch.id"
-    static let typeKey = "agentwatch.type"
-    static let createdAtKey = "agentwatch.createdAt"
-    static let sourceKey = "agentwatch.source"
-    static let titleKey = "agentwatch.title"
-    static let bodyKey = "agentwatch.body"
+struct TaphapticSyncPayload: Equatable, Sendable {
+    static let hasCurrentKey = "taphaptic.hasCurrent"
+    static let idKey = "taphaptic.id"
+    static let typeKey = "taphaptic.type"
+    static let createdAtKey = "taphaptic.createdAt"
+    static let sourceKey = "taphaptic.source"
+    static let titleKey = "taphaptic.title"
+    static let bodyKey = "taphaptic.body"
 
     let id: Int64
-    let type: AgentWatchEventType
+    let type: TaphapticEventType
     let createdAt: String
     let source: String
     let title: String
     let body: String
 
-    init(event: AgentWatchEvent) {
+    init(event: TaphapticEvent) {
         let formatter = ISO8601DateFormatter()
 
         id = event.id
@@ -108,7 +108,7 @@ struct AgentWatchSyncPayload: Equatable, Sendable {
 
         guard
             let typeRaw = context[Self.typeKey] as? String,
-            let type = AgentWatchEventType(rawValue: typeRaw)
+            let type = TaphapticEventType(rawValue: typeRaw)
         else {
             return nil
         }
@@ -146,11 +146,11 @@ struct AgentWatchSyncPayload: Equatable, Sendable {
         [hasCurrentKey: false]
     }
 
-    func asEvent() -> AgentWatchEvent {
+    func asEvent() -> TaphapticEvent {
         let formatter = ISO8601DateFormatter()
         let parsedDate = formatter.date(from: createdAt) ?? Date()
 
-        return AgentWatchEvent(
+        return TaphapticEvent(
             id: id,
             type: type,
             createdAt: parsedDate,
@@ -161,32 +161,32 @@ struct AgentWatchSyncPayload: Equatable, Sendable {
     }
 }
 
-struct AgentWatchPhoneSyncState: Equatable, Sendable {
-    static let phoneSessionTokenKey = "agentwatch.phoneSessionToken"
-    static let apiBaseURLKey = "agentwatch.apiBaseURL"
-    static let pollIntervalSecondsKey = "agentwatch.pollIntervalSeconds"
+struct TaphapticPhoneSyncState: Equatable, Sendable {
+    static let phoneSessionTokenKey = "taphaptic.phoneSessionToken"
+    static let apiBaseURLKey = "taphaptic.apiBaseURL"
+    static let pollIntervalSecondsKey = "taphaptic.pollIntervalSeconds"
 
-    let payload: AgentWatchSyncPayload?
+    let payload: TaphapticSyncPayload?
     let phoneSessionToken: String?
     let apiBaseURL: String?
     let pollIntervalSeconds: TimeInterval?
 
-    init(event: AgentWatchEvent?, phoneSessionToken: String?, apiBaseURL: String?, pollIntervalSeconds: TimeInterval?) {
-        payload = event.map(AgentWatchSyncPayload.init(event:))
+    init(event: TaphapticEvent?, phoneSessionToken: String?, apiBaseURL: String?, pollIntervalSeconds: TimeInterval?) {
+        payload = event.map(TaphapticSyncPayload.init(event:))
         self.phoneSessionToken = Self.normalized(phoneSessionToken)
         self.apiBaseURL = Self.normalized(apiBaseURL)
         self.pollIntervalSeconds = Self.normalized(pollIntervalSeconds)
     }
 
     init(context: [String: Any]) {
-        payload = AgentWatchSyncPayload(context: context)
+        payload = TaphapticSyncPayload(context: context)
         phoneSessionToken = Self.normalized(context[Self.phoneSessionTokenKey] as? String)
         apiBaseURL = Self.normalized(context[Self.apiBaseURLKey] as? String)
         pollIntervalSeconds = Self.normalizedPollInterval(context[Self.pollIntervalSecondsKey])
     }
 
     var applicationContext: [String: Any] {
-        var context = payload?.applicationContext ?? AgentWatchSyncPayload.emptyContext
+        var context = payload?.applicationContext ?? TaphapticSyncPayload.emptyContext
         if let phoneSessionToken {
             context[Self.phoneSessionTokenKey] = phoneSessionToken
         }

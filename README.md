@@ -105,4 +105,3 @@ Run Apple/watch checks:
 
 - Watch and Mac must be on the same local network.
 - If discovery fails, keep the API running and retry pairing from watch.
-- Cloud hosting scripts in `scripts/` and `deploy/` are deprecated in local-only v1.

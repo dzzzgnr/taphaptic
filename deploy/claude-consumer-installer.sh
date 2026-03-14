@@ -12,12 +12,9 @@ fi
 install_root="$HOME/Library/Application Support/Taphaptic"
 install_bin_dir="$install_root/bin"
 installed_helper="$install_bin_dir/taphaptic-hook"
-legacy_install_root="$HOME/Library/Application Support/AgentWatch"
-legacy_bin_dir="$legacy_install_root/bin"
-legacy_helper="$legacy_bin_dir/agentwatch-hook"
 claude_root="$HOME/.claude"
 
-api_base_url="${TAPHAPTIC_API_BASE_URL:-${AGENTWATCH_API_BASE_URL:-http://127.0.0.1:8080}}"
+api_base_url="${TAPHAPTIC_API_BASE_URL:-http://127.0.0.1:8080}"
 api_base_url_file="$install_root/api-base-url"
 
 installation_token_file="$install_root/installation-token"
@@ -27,7 +24,7 @@ claude_session_token_file="$install_root/claude-session-token"
 assert_allowed_write_path() {
   path="$1"
   case "$path" in
-    "$claude_root"/*|"$install_root"/*|"$legacy_install_root"/*)
+    "$claude_root"/*|"$install_root"/*)
       return 0
       ;;
     *)
@@ -151,6 +148,20 @@ def ensure_array(key):
         raise SystemExit(f"Claude settings key '{key}' must be an array.")
     return value
 
+def should_drop_legacy_hook(command):
+    if not isinstance(command, str):
+        return False
+
+    normalized = command.lower()
+    if "taphaptic-hook" in normalized:
+        return False
+
+    return (
+        "/library/application support/" in normalized
+        and "/bin/" in normalized
+        and "watch-hook" in normalized
+    )
+
 def prune_legacy_entries(entries):
     filtered = []
     for entry in entries:
@@ -166,7 +177,7 @@ def prune_legacy_entries(entries):
             if not isinstance(hook, dict):
                 continue
             command = hook.get("command", "")
-            if isinstance(command, str) and "/Library/Application Support/AgentWatch/" in command:
+            if should_drop_legacy_hook(command):
                 continue
             cleaned_hooks.append(hook)
 
@@ -240,10 +251,10 @@ PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 action="${1:-}"
 install_root="$HOME/Library/Application Support/Taphaptic"
 
-api_base_url="${TAPHAPTIC_API_BASE_URL:-${AGENTWATCH_API_BASE_URL:-}}"
+api_base_url="${TAPHAPTIC_API_BASE_URL:-}"
 api_base_url_file="$install_root/api-base-url"
 
-claude_session_token="${TAPHAPTIC_CLAUDE_SESSION_TOKEN:-${AGENTWATCH_CLAUDE_SESSION_TOKEN:-}}"
+claude_session_token="${TAPHAPTIC_CLAUDE_SESSION_TOKEN:-}"
 claude_session_token_file="$install_root/claude-session-token"
 installation_token_file="$install_root/installation-token"
 
@@ -386,17 +397,6 @@ payload="$(printf '{"type":"%s","source":"claude-code","title":"%s","body":"%s"}
 api_post_json "v1/events" "$claude_session_token" "$payload" >/dev/null 2>&1 &
 SH
 chmod +x "$installed_helper"
-
-mkdir -p "$legacy_bin_dir"
-assert_allowed_write_path "$legacy_helper"
-cat > "$legacy_helper" <<'SH'
-#!/bin/sh
-
-set -eu
-
-exec /bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" "${1:-stop}"
-SH
-chmod +x "$legacy_helper"
 
 write_file "$api_base_url_file" "$api_base_url" 600
 patch_claude_settings

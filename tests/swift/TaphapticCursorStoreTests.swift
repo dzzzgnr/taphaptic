@@ -1,13 +1,13 @@
 import Foundation
 import XCTest
 
-final class AgentWatchCursorStoreTests: XCTestCase {
+final class TaphapticCursorStoreTests: XCTestCase {
     private var defaults: UserDefaults!
     private var suiteName: String!
 
     override func setUp() {
         super.setUp()
-        suiteName = "AgentWatchCursorStoreTests.\(UUID().uuidString)"
+        suiteName = "TaphapticCursorStoreTests.\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suiteName)
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -22,18 +22,18 @@ final class AgentWatchCursorStoreTests: XCTestCase {
     func testRoundTripLargeInt64Cursor() {
         let eventID: Int64 = 1_772_712_975_044
 
-        AgentWatchCursorStore.writeInt64(
+        TaphapticCursorStore.writeInt64(
             eventID,
             defaults: defaults,
             stringKey: "cursor.string",
             legacyIntegerKey: "cursor.legacy"
         )
 
-        let loaded = AgentWatchCursorStore.readInt64(
+        let loaded = TaphapticCursorStore.readInt64(
             defaults: defaults,
             stringKey: "cursor.string",
             legacyIntegerKey: "cursor.legacy",
-            minimumPlausibleValue: AgentWatchCursorStore.plausibleUnixMillisecondsLowerBound
+            minimumPlausibleValue: TaphapticCursorStore.plausibleUnixMillisecondsLowerBound
         )
 
         XCTAssertEqual(loaded, eventID)
@@ -43,11 +43,11 @@ final class AgentWatchCursorStoreTests: XCTestCase {
     func testLegacyImplausibleValueIsIgnored() {
         defaults.set(8_123_456, forKey: "cursor.legacy")
 
-        let loaded = AgentWatchCursorStore.readInt64(
+        let loaded = TaphapticCursorStore.readInt64(
             defaults: defaults,
             stringKey: "cursor.string",
             legacyIntegerKey: "cursor.legacy",
-            minimumPlausibleValue: AgentWatchCursorStore.plausibleUnixMillisecondsLowerBound
+            minimumPlausibleValue: TaphapticCursorStore.plausibleUnixMillisecondsLowerBound
         )
 
         XCTAssertNil(loaded)
@@ -58,11 +58,11 @@ final class AgentWatchCursorStoreTests: XCTestCase {
         let legacyValue: Int64 = 1_772_712_975_044
         defaults.set(legacyValue, forKey: "cursor.legacy")
 
-        let loaded = AgentWatchCursorStore.readInt64(
+        let loaded = TaphapticCursorStore.readInt64(
             defaults: defaults,
             stringKey: "cursor.string",
             legacyIntegerKey: "cursor.legacy",
-            minimumPlausibleValue: AgentWatchCursorStore.plausibleUnixMillisecondsLowerBound
+            minimumPlausibleValue: TaphapticCursorStore.plausibleUnixMillisecondsLowerBound
         )
 
         XCTAssertEqual(loaded, legacyValue)
