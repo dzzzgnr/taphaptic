@@ -22,6 +22,11 @@ Default scripts download prebuilt `taphaptic-api` and `taphapticctl` binaries fr
 - Use developer mode when testing unreleased branches before release assets exist.
 - Publishing a GitHub Release triggers `.github/workflows/release-binaries.yml` to build, sign, notarize, and attach macOS binaries.
 
+## Physical-watch release gate
+
+- Before tagging any release, complete the physical-watch checklist in [docs/physical-watch-validation.md](docs/physical-watch-validation.md).
+- Paste the completed pass/fail template from that checklist into the release PR notes.
+
 ### Release signing and notarization
 
 Configure these repository secrets before publishing a release:
