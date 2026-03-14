@@ -8,12 +8,6 @@ Taphaptic sends Claude Code task status to Apple Watch using a local API running
 - local Go API for pairing + event ingestion
 - Claude hook installer
 
-Out of scope in v1:
-
-- hosted/cloud relay flow
-- iPhone companion flow
-- legacy macOS token service
-
 ## Prerequisites (manual)
 
 - macOS with Xcode and watchOS runtime
@@ -23,7 +17,7 @@ Out of scope in v1:
 ## First-time setup (physical watch)
 
 ```sh
-git clone <repo-url> && cd taphaptic && ./scripts/bootstrap-watch.sh
+git clone https://github.com/dzzzgnr/taphaptic.git && cd taphaptic && ./scripts/bootstrap-watch.sh
 ```
 
 `./scripts/bootstrap-watch.sh` will:
