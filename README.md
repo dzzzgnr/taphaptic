@@ -2,6 +2,11 @@
 
 Taphaptic sends Claude Code task status to Apple Watch using a local API running on your Mac.
 
+## Prerequisites
+
+- Go 1.22+ (required to build the local API from source)
+- Xcode + watchOS simulator runtime
+
 ## What this repo contains
 
 - watchOS app (watch-only)
