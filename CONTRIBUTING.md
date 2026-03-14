@@ -1,9 +1,10 @@
 # Contributing
 
-## Prerequisites
+## Setup
 
 - Go 1.22+
-- Xcode + watchOS simulator runtime
+- Xcode (Apple platform toolchain)
+- Physical Apple Watch paired to iPhone (required only for on-device watch validation)
 
 ## First-time local setup
 
@@ -13,13 +14,10 @@
 
 This runs preflight checks, starts the API, and installs Claude hooks.
 
-## Maintainer tooling
+## Legacy installer
 
-- Regenerate project files from `project.yml` only when needed:
-
-```sh
-./scripts/regenerate-xcodeproj.sh
-```
+- `deploy/legacy/claude-consumer-installer.sh` is kept for historical reference only.
+- Default onboarding and support path is `./scripts/install-claude-hook.sh` (via `taphapticctl`).
 
 ## Daily local run
 

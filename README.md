@@ -16,48 +16,36 @@ Taphaptic sends Claude Code task status to Apple Watch using a local API running
 
 ## Physical Watch Quickstart
 
-1. Clone the repo:
+1. Clone and bootstrap in one command:
 
 ```sh
-git clone https://github.com/dzzzgnr/taphaptic.git && cd taphaptic
+git clone https://github.com/dzzzgnr/taphaptic.git && cd taphaptic && ./scripts/bootstrap-watch.sh
 ```
 
-2. Build the local API:
+2. In Xcode, select scheme `Taphaptic`, choose your physical Apple Watch destination, and press Run.
 
-```sh
-./scripts/build-taphaptic-api.sh
-```
-
-3. Run the API on your Mac (keep this terminal open):
-
-```sh
-./bin/taphaptic-api
-```
-
-4. In another terminal, install Claude hooks and generate a pairing code:
-
-```sh
-./scripts/install-claude-hook.sh
-```
-
-5. Open `Taphaptic.xcodeproj` in Xcode, select scheme `Taphaptic`, choose your physical Apple Watch destination, and press Run.
-
-6. Open Taphaptic on Apple Watch and enter the **4-digit** code from step 4.
+3. Open Taphaptic on Apple Watch and enter the **4-digit** pairing code printed during bootstrap.
 
 ## Daily Run
 
 1. Start the API:
 
 ```sh
-./bin/taphaptic-api
+./scripts/start-api.sh
 ```
 
-2. Start a new Claude session.
+2. Start a new Claude session so hooks load.
 
 3. Optional verification event:
 
 ```sh
 ./scripts/test-claude-connection.sh stop
+```
+
+4. Optional cleanup:
+
+```sh
+./scripts/stop-api.sh
 ```
 
 ## How pairing works
