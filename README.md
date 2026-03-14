@@ -18,9 +18,6 @@ Out of scope in v1:
 
 - macOS with Xcode and watchOS runtime
 - Go 1.22+
-- `xcodegen` (`brew install xcodegen`)
-- `curl`
-- `python3`
 - Physical Apple Watch paired to iPhone (for device deployment)
 
 ## First-time setup (physical watch)
@@ -32,10 +29,9 @@ git clone <repo-url> && cd taphaptic && ./scripts/bootstrap-watch.sh
 `./scripts/bootstrap-watch.sh` will:
 
 1. Run preflight checks (`doctor`).
-2. Generate Xcode project files.
-3. Start local API.
-4. Install Claude hooks and print a 4-digit watch pairing code.
-5. Open `Taphaptic.xcodeproj`.
+2. Start local API.
+3. Install Claude hooks and print a 4-digit watch pairing code.
+4. Open `Taphaptic.xcodeproj`.
 
 Then complete these manual steps:
 

@@ -41,9 +41,6 @@ esac
 
 "/bin/sh" "$repo_root/scripts/doctor.sh"
 
-cd "$repo_root"
-xcodegen generate
-
 "/bin/sh" "$repo_root/scripts/start-api.sh"
 "/bin/sh" "$repo_root/scripts/connect-claude-code.sh" --scope "$scope"
 

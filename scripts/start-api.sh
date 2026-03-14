@@ -28,7 +28,19 @@ if printf '%s' "$probe_host" | grep -q ':'; then
   health_url="http://[$probe_host]:$port/healthz"
 fi
 
-if curl -fsS --max-time 1 "$health_url" >/dev/null 2>&1; then
+if ! command -v go >/dev/null 2>&1; then
+  printf '%s\n' "go is required. Install Go 1.22+ from https://go.dev/dl/" >&2
+  exit 127
+fi
+
+mkdir -p "$repo_root/bin"
+(
+  cd "$repo_root"
+  go build -o "$repo_root/bin/taphapticctl" ./cmd/taphapticctl
+)
+
+health_base_url="${health_url%/healthz}"
+if "$repo_root/bin/taphapticctl" health --base-url "$health_base_url" --timeout-ms 1000 >/dev/null 2>&1; then
   printf '%s\n' "API already running at http://$probe_host:$port"
   exit 0
 fi
@@ -59,7 +71,7 @@ chmod 600 "$pid_file"
 
 attempt=0
 while [ "$attempt" -lt 25 ]; do
-  if curl -fsS --max-time 1 "$health_url" >/dev/null 2>&1; then
+  if "$repo_root/bin/taphapticctl" health --base-url "$health_base_url" --timeout-ms 1000 >/dev/null 2>&1; then
     printf '%s\n' "API started (pid=$api_pid), logs: $log_file"
     exit 0
   fi

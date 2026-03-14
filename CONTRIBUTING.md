@@ -4,9 +4,6 @@
 
 - Go 1.22+
 - Xcode + watchOS simulator runtime
-- `xcodegen`
-- `curl`
-- `python3`
 
 ## First-time local setup
 
@@ -14,7 +11,15 @@
 ./scripts/bootstrap-watch.sh
 ```
 
-This runs preflight checks, generates project files, starts the API, and installs Claude hooks.
+This runs preflight checks, starts the API, and installs Claude hooks.
+
+## Maintainer tooling
+
+- Regenerate project files from `project.yml` only when needed:
+
+```sh
+./scripts/regenerate-xcodeproj.sh
+```
 
 ## Daily local run
 

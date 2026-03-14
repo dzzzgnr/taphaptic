@@ -25,9 +25,6 @@ check_command() {
 
 check_command "go" "Install Go 1.22+ from https://go.dev/dl/"
 check_command "xcodebuild" "Install Xcode from the App Store."
-check_command "xcodegen" "Install with: brew install xcodegen"
-check_command "curl" "Install Command Line Tools for Xcode."
-check_command "python3" "Install with: brew install python"
 
 if ! command -v xcode-select >/dev/null 2>&1; then
   printf '%s\n' "Missing required command: xcode-select" >&2
