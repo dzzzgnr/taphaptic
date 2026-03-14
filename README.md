@@ -11,6 +11,7 @@ Taphaptic sends Claude Code task status to Apple Watch using a local API running
 ## Requirements
 
 - macOS with Xcode (Apple Watch deployment enabled)
+- Go 1.22+
 - Physical Apple Watch paired to iPhone
 
 ## Physical Watch Quickstart
@@ -25,21 +26,7 @@ git clone https://github.com/dzzzgnr/taphaptic.git && cd taphaptic && ./scripts/
 
 3. Open Taphaptic on Apple Watch and enter the **4-digit** pairing code printed during bootstrap.
 
-Bootstrap downloads prebuilt `taphaptic-api` and `taphapticctl` binaries from GitHub Releases when missing.
-Published macOS release binaries are signed and notarized.
-For unreleased branches, use developer mode (`TAPHAPTIC_DEV_MODE=1`) with Go installed.
-
-## Binary Verification (macOS)
-
-To verify downloaded helper binaries manually:
-
-```sh
-codesign --verify --strict --verbose=2 ./bin/taphapticctl
-spctl --assess --type execute --verbose=4 ./bin/taphapticctl
-
-codesign --verify --strict --verbose=2 ./bin/taphaptic-api
-spctl --assess --type execute --verbose=4 ./bin/taphaptic-api
-```
+Bootstrap builds `taphaptic-api` and `taphapticctl` from local source.
 
 ## Daily Run
 
@@ -87,13 +74,7 @@ Authenticated routes:
 
 ## CI checks (local equivalent)
 
-Developer mode (build binaries from local source with Go):
-
-```sh
-TAPHAPTIC_DEV_MODE=1 ./scripts/start-api.sh
-```
-
-Run backend unit tests (requires Go):
+Run backend unit tests:
 
 ```sh
 go test ./... -count=1
