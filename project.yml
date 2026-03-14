@@ -1,0 +1,71 @@
+name: AgentWatch
+options:
+  bundleIdPrefix: local.agentwatch
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: 6.0
+    MARKETING_VERSION: 0.1.0
+    CURRENT_PROJECT_VERSION: 1
+targets:
+  AgentWatch:
+    type: application
+    platform: watchOS
+    deploymentTarget: "11.0"
+    sources:
+      - path: watch-app
+      - path: shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.agentwatch.watch
+        PRODUCT_NAME: AgentWatch
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: AgentWatch
+        INFOPLIST_KEY_WKApplication: YES
+        INFOPLIST_KEY_WKWatchOnly: YES
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "4"
+        SDKROOT: watchos
+  AgentWatchSharedTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: shared
+      - path: tests/swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.agentwatch.sharedtests
+        PRODUCT_NAME: AgentWatchSharedTests
+        GENERATE_INFOPLIST_FILE: YES
+    scheme:
+      gatherCoverageData: false
+schemes:
+  AgentWatch:
+    build:
+      targets:
+        AgentWatch: all
+    run:
+      config: Debug
+      debugEnabled: false
+      disableMainThreadChecker: true
+      disableThreadPerformanceChecker: true
+    test:
+      gatherCoverageData: false
+  AgentWatchLLDB:
+    build:
+      targets:
+        AgentWatch: all
+    run:
+      config: Debug
+      debugEnabled: true
+    test:
+      gatherCoverageData: false
+  AgentWatchRegressionTests:
+    build:
+      targets:
+        AgentWatchSharedTests: all
+    test:
+      gatherCoverageData: false
+      targets:
+        - name: AgentWatchSharedTests

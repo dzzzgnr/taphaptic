@@ -1,0 +1,9 @@
+{
+  "name": "agentwatch",
+  "version": "1.0.0",
+  "description": "Send AgentWatch status events when Claude Code stops",
+  "author": {
+    "name": "AgentWatch",
+    "email": "support@example.com"
+  }
+}
