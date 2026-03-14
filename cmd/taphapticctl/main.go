@@ -615,6 +615,60 @@ func installCtlBinary(destination string) error {
 	if err := copyFile(src, destination, 0o755); err != nil {
 		return err
 	}
+	if err := ensureSignaturePreserved(src, destination); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ensureSignaturePreserved(src, dst string) error {
+	if !commandAvailable("codesign") {
+		return nil
+	}
+
+	signed, err := hasCodeSignature(src)
+	if err != nil {
+		return err
+	}
+	if !signed {
+		return nil
+	}
+
+	if err := verifyCodeSignature(dst); err != nil {
+		return fmt.Errorf("installed binary signature check failed: %w", err)
+	}
+	return nil
+}
+
+func commandAvailable(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
+}
+
+func hasCodeSignature(path string) (bool, error) {
+	cmd := exec.Command("codesign", "-dv", path)
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		return true, nil
+	}
+
+	if exitErr, ok := err.(*exec.ExitError); ok && exitErr != nil {
+		message := strings.ToLower(string(output))
+		if strings.Contains(message, "code object is not signed") || strings.Contains(message, "not signed at all") {
+			return false, nil
+		}
+		return false, fmt.Errorf("inspect code signature for %s: %s", path, strings.TrimSpace(string(output)))
+	}
+
+	return false, fmt.Errorf("inspect code signature for %s: %w", path, err)
+}
+
+func verifyCodeSignature(path string) error {
+	cmd := exec.Command("codesign", "--verify", "--strict", "--verbose=2", path)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("codesign verify for %s failed: %s", path, strings.TrimSpace(string(output)))
+	}
 	return nil
 }
 

@@ -26,7 +26,20 @@ git clone https://github.com/dzzzgnr/taphaptic.git && cd taphaptic && ./scripts/
 3. Open Taphaptic on Apple Watch and enter the **4-digit** pairing code printed during bootstrap.
 
 Bootstrap downloads prebuilt `taphaptic-api` and `taphapticctl` binaries from GitHub Releases when missing.
+Published macOS release binaries are signed and notarized.
 For unreleased branches, use developer mode (`TAPHAPTIC_DEV_MODE=1`) with Go installed.
+
+## Binary Verification (macOS)
+
+To verify downloaded helper binaries manually:
+
+```sh
+codesign --verify --strict --verbose=2 ./bin/taphapticctl
+spctl --assess --type execute --verbose=4 ./bin/taphapticctl
+
+codesign --verify --strict --verbose=2 ./bin/taphaptic-api
+spctl --assess --type execute --verbose=4 ./bin/taphaptic-api
+```
 
 ## Daily Run
 
