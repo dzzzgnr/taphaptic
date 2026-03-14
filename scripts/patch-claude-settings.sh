@@ -36,11 +36,7 @@ while [ $# -gt 0 ]; do
 done
 
 case "$scope" in
-  user)
-    settings_path="$HOME/.claude/settings.json"
-    ;;
-  project)
-    settings_path="$repo_root/.claude/settings.json"
+  user|project)
     ;;
   *)
     printf '%s\n' "unsupported scope: $scope (use user or project)" >&2
@@ -48,116 +44,21 @@ case "$scope" in
     ;;
 esac
 
-if ! command -v python3 >/dev/null 2>&1; then
-  printf '%s\n' "python3 is required to merge Claude settings safely." >&2
+if ! command -v go >/dev/null 2>&1; then
+  printf '%s\n' "go is required. Install Go 1.22+ from https://go.dev/dl/" >&2
   exit 127
 fi
 
-mkdir -p "$(dirname "$settings_path")"
+mkdir -p "$repo_root/bin"
+(
+  cd "$repo_root"
+  go build -o "$repo_root/bin/taphapticctl" ./cmd/taphapticctl
+)
 
-python3 - "$settings_path" "$with_notifications" <<'PY'
-import json
-import os
-import sys
+cd "$repo_root"
 
-settings_path = sys.argv[1]
-with_notifications = sys.argv[2] == "1"
+if [ "$with_notifications" = "1" ]; then
+  exec "$repo_root/bin/taphapticctl" patch-settings --scope "$scope" --with-notifications
+fi
 
-STOP_COMMAND = '/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" stop'
-SUBAGENT_COMMAND = '/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" subagent_stop'
-PERMISSION_COMMAND = '/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" permission_prompt'
-IDLE_COMMAND = '/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" idle_prompt'
-
-
-def load_settings(path: str) -> dict:
-    if not os.path.exists(path):
-        return {}
-
-    with open(path, "r", encoding="utf-8") as handle:
-        data = json.load(handle)
-
-    if not isinstance(data, dict):
-        raise SystemExit(f"Claude settings at {path} must contain a JSON object")
-
-    return data
-
-
-def ensure_hooks_root(config: dict) -> dict:
-    hooks = config.get("hooks")
-    if hooks is None:
-        hooks = {}
-    if not isinstance(hooks, dict):
-        raise SystemExit("Claude settings key 'hooks' must be an object")
-    return hooks
-
-
-def ensure_array(hooks: dict, key: str) -> list:
-    value = hooks.get(key)
-    if value is None:
-        hooks[key] = []
-        return hooks[key]
-
-    if not isinstance(value, list):
-        raise SystemExit(f"Claude settings key '{key}' must be an array")
-
-    return value
-
-
-def has_command(entries: list, command: str) -> bool:
-    for entry in entries:
-        if not isinstance(entry, dict):
-            continue
-
-        hooks = entry.get("hooks", [])
-        if not isinstance(hooks, list):
-            continue
-
-        for hook in hooks:
-            if isinstance(hook, dict) and hook.get("type") == "command" and hook.get("command") == command:
-                return True
-
-    return False
-
-
-def add_command(entries: list, matcher: str, command: str) -> None:
-    if has_command(entries, command):
-        return
-
-    entries.append(
-        {
-            "matcher": matcher,
-            "hooks": [
-                {
-                    "type": "command",
-                    "command": command,
-                }
-            ],
-        }
-    )
-
-
-config = load_settings(settings_path)
-hooks = ensure_hooks_root(config)
-
-stop_entries = ensure_array(hooks, "Stop")
-add_command(stop_entries, "*", STOP_COMMAND)
-
-subagent_entries = ensure_array(hooks, "SubagentStop")
-add_command(subagent_entries, "*", SUBAGENT_COMMAND)
-
-if with_notifications:
-    notification_entries = ensure_array(hooks, "Notification")
-    add_command(notification_entries, "permission_prompt", PERMISSION_COMMAND)
-    add_command(notification_entries, "idle_prompt", IDLE_COMMAND)
-
-config["hooks"] = hooks
-for legacy_key in ("Stop", "SubagentStop", "Notification"):
-    if legacy_key in config:
-        del config[legacy_key]
-
-with open(settings_path, "w", encoding="utf-8") as handle:
-    json.dump(config, handle, indent=2)
-    handle.write("\n")
-PY
-
-printf '%s\n' "Updated Claude settings at $settings_path"
+exec "$repo_root/bin/taphapticctl" patch-settings --scope "$scope"

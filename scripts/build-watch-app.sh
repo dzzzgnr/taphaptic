@@ -9,7 +9,6 @@ if ! xcodebuild -showsdks | grep -q "watchsimulator"; then
 fi
 
 cd "$repo_root"
-
 exec xcodebuild \
   -project Taphaptic.xcodeproj \
   -scheme Taphaptic \

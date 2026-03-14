@@ -5,24 +5,42 @@
 - Go 1.22+
 - Xcode + watchOS simulator runtime
 
-## Local development
-
-1. Run backend tests:
+## First-time local setup
 
 ```sh
-go test ./...
+./scripts/bootstrap-watch.sh
 ```
 
-2. Build local API:
+This runs preflight checks, starts the API, and installs Claude hooks.
+
+## Maintainer tooling
+
+- Regenerate project files from `project.yml` only when needed:
 
 ```sh
-./scripts/build-taphaptic-api.sh
+./scripts/regenerate-xcodeproj.sh
 ```
 
-3. Build watch app:
+## Daily local run
+
+1. Start API:
 
 ```sh
+./scripts/start-api.sh
+```
+
+2. Run checks you need:
+
+```sh
+go test ./... -count=1
 ./scripts/build-watch-app.sh
+./scripts/test-shared-swift.sh
+```
+
+3. Optional API cleanup:
+
+```sh
+./scripts/stop-api.sh
 ```
 
 ## Scope guardrails
