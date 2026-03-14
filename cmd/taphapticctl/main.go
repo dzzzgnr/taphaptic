@@ -160,7 +160,7 @@ func runInstallConsumer(args []string) error {
 	}
 
 	fmt.Println()
-	fmt.Println(code)
+	printPairingCode(code)
 	fmt.Println()
 	return nil
 }
@@ -918,6 +918,70 @@ func eventForAction(action string) (eventPayload, error) {
 	default:
 		return eventPayload{}, fmt.Errorf("usage: taphapticctl emit --action <stop|subagent_stop|permission_prompt|idle_prompt|completed|subagent_completed|failed|attention>")
 	}
+}
+
+func printPairingCode(code string) {
+	lines := formatPairingCodeDisplay(code, terminalSupportsANSI(os.Stdout))
+	for _, line := range lines {
+		fmt.Println(line)
+	}
+}
+
+func formatPairingCodeDisplay(code string, useANSI bool) []string {
+	normalized := strings.TrimSpace(code)
+	if normalized == "" {
+		return nil
+	}
+
+	// Spacing between digits makes the short code easier to parse quickly.
+	spaced := spaceSeparatedCode(normalized)
+	lines := []string{
+		"Enter this 4-digit pairing code on your Apple Watch:",
+	}
+
+	if useANSI {
+		lines = append(lines, fmt.Sprintf("\x1b[1;97;44m  %s  \x1b[0m", spaced))
+		return lines
+	}
+
+	border := strings.Repeat("=", len(spaced)+4)
+	lines = append(lines,
+		border,
+		fmt.Sprintf("| %s |", spaced),
+		border,
+	)
+	return lines
+}
+
+func terminalSupportsANSI(stdout *os.File) bool {
+	if stdout == nil {
+		return false
+	}
+	if strings.TrimSpace(os.Getenv("NO_COLOR")) != "" {
+		return false
+	}
+	term := strings.ToLower(strings.TrimSpace(os.Getenv("TERM")))
+	if term == "" || term == "dumb" {
+		return false
+	}
+	info, err := stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return info.Mode()&os.ModeCharDevice != 0
+}
+
+func spaceSeparatedCode(code string) string {
+	var builder strings.Builder
+	first := true
+	for _, r := range code {
+		if !first {
+			builder.WriteByte(' ')
+		}
+		builder.WriteRune(r)
+		first = false
+	}
+	return builder.String()
 }
 
 func normalizedBaseURL(raw string) (string, error) {

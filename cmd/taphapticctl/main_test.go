@@ -272,3 +272,62 @@ func TestSmokeAgainstBaseURL(t *testing.T) {
 		t.Fatalf("smokeAgainstBaseURL failed: %v", err)
 	}
 }
+
+func TestFormatPairingCodeDisplayANSI(t *testing.T) {
+	t.Parallel()
+
+	lines := formatPairingCodeDisplay("1234", true)
+	if len(lines) != 2 {
+		t.Fatalf("line count=%d want 2", len(lines))
+	}
+	if lines[0] != "Enter this 4-digit pairing code on your Apple Watch:" {
+		t.Fatalf("unexpected heading: %q", lines[0])
+	}
+	if !strings.Contains(lines[1], "1 2 3 4") {
+		t.Fatalf("formatted code missing spacing: %q", lines[1])
+	}
+	if !strings.Contains(lines[1], "\x1b[1;97;44m") || !strings.Contains(lines[1], "\x1b[0m") {
+		t.Fatalf("formatted ANSI line missing escape codes: %q", lines[1])
+	}
+}
+
+func TestFormatPairingCodeDisplayPlain(t *testing.T) {
+	t.Parallel()
+
+	lines := formatPairingCodeDisplay("9876", false)
+	if len(lines) != 4 {
+		t.Fatalf("line count=%d want 4", len(lines))
+	}
+	if lines[0] != "Enter this 4-digit pairing code on your Apple Watch:" {
+		t.Fatalf("unexpected heading: %q", lines[0])
+	}
+	if lines[1] != "===========" {
+		t.Fatalf("unexpected border: %q", lines[1])
+	}
+	if lines[2] != "| 9 8 7 6 |" {
+		t.Fatalf("unexpected body: %q", lines[2])
+	}
+	if lines[3] != "===========" {
+		t.Fatalf("unexpected border: %q", lines[3])
+	}
+}
+
+func TestFormatPairingCodeDisplayEmpty(t *testing.T) {
+	t.Parallel()
+
+	lines := formatPairingCodeDisplay("   ", true)
+	if len(lines) != 0 {
+		t.Fatalf("line count=%d want 0", len(lines))
+	}
+}
+
+func TestSpaceSeparatedCode(t *testing.T) {
+	t.Parallel()
+
+	if got := spaceSeparatedCode("1234"); got != "1 2 3 4" {
+		t.Fatalf("spaceSeparatedCode(1234)=%q want %q", got, "1 2 3 4")
+	}
+	if got := spaceSeparatedCode(""); got != "" {
+		t.Fatalf("spaceSeparatedCode(empty)=%q want empty", got)
+	}
+}
