@@ -50,6 +50,26 @@ Bootstrap builds `taphaptic-api` and `taphapticctl` from local source.
 ./scripts/stop-api.sh
 ```
 
+## Uninstall
+
+Remove Taphaptic API/runtime files from your Mac:
+
+```sh
+./scripts/uninstall.sh
+```
+
+Non-interactive mode (for CI/testing scripts):
+
+```sh
+./scripts/uninstall.sh --yes
+```
+
+To also restore the latest Claude settings backup made during install:
+
+```sh
+./scripts/uninstall.sh --yes --restore-claude-settings
+```
+
 ## How pairing works
 
 - Installer calls `POST /v1/claude/installations` to bootstrap installation identity.
