@@ -23,8 +23,12 @@ check_command() {
   missing=1
 }
 
-check_command "go" "Install Go 1.22+ from https://go.dev/dl/"
 check_command "xcodebuild" "Install Xcode from the App Store."
+
+if ! command -v curl >/dev/null 2>&1 && ! command -v go >/dev/null 2>&1; then
+  printf '%s\n' "Missing required runtime helper: install either curl (for prebuilt binary downloads) or Go (developer mode source builds)." >&2
+  missing=1
+fi
 
 if ! command -v xcode-select >/dev/null 2>&1; then
   printf '%s\n' "Missing required command: xcode-select" >&2

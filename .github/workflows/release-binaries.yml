@@ -1,0 +1,45 @@
+name: Release Binaries
+
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: write
+
+jobs:
+  publish-macos-binaries:
+    name: Publish macOS binaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build binaries
+        run: |
+          set -eu
+          mkdir -p dist
+          for arch in arm64 amd64; do
+            GOOS=darwin GOARCH="$arch" CGO_ENABLED=0 go build -o "dist/taphapticctl_darwin_${arch}" ./cmd/taphapticctl
+            GOOS=darwin GOARCH="$arch" CGO_ENABLED=0 go build -o "dist/taphaptic-api_darwin_${arch}" ./cmd/taphaptic-api
+          done
+          shasum -a 256 dist/* > dist/SHA256SUMS
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: |
+            dist/taphapticctl_darwin_arm64
+            dist/taphapticctl_darwin_amd64
+            dist/taphaptic-api_darwin_arm64
+            dist/taphaptic-api_darwin_amd64
+            dist/SHA256SUMS

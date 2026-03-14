@@ -2,7 +2,6 @@
 
 ## Setup
 
-- Go 1.22+
 - Xcode (Apple platform toolchain)
 - Physical Apple Watch paired to iPhone (required only for on-device watch validation)
 
@@ -13,6 +12,15 @@
 ```
 
 This runs preflight checks, starts the API, and installs Claude hooks.
+
+Default scripts download prebuilt `taphaptic-api` and `taphapticctl` binaries from GitHub Releases when missing.
+
+## Developer mode
+
+- Go 1.22+ (for local source builds and backend tests)
+- Set `TAPHAPTIC_DEV_MODE=1` to force scripts to build binaries from local source instead of downloading prebuilt assets.
+- Use developer mode when testing unreleased branches before release assets exist.
+- Publishing a GitHub Release triggers `.github/workflows/release-binaries.yml` to attach macOS prebuilt binaries.
 
 ## Legacy installer
 
