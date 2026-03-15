@@ -16,6 +16,44 @@ log_file="$log_dir/api.log"
 bind_host="${TAPHAPTIC_BIND_HOST:-0.0.0.0}"
 port="${TAPHAPTIC_PORT:-8080}"
 
+resolve_lan_ipv4() {
+  default_interface="$(route -n get default 2>/dev/null | awk '/interface:/{ print $2; exit }')"
+  if [ -n "$default_interface" ]; then
+    candidate="$(ipconfig getifaddr "$default_interface" 2>/dev/null || true)"
+    candidate="$(printf '%s' "$candidate" | tr -d '[:space:]')"
+    if [ -n "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  fi
+
+  for interface in en0 en1; do
+    candidate="$(ipconfig getifaddr "$interface" 2>/dev/null || true)"
+    candidate="$(printf '%s' "$candidate" | tr -d '[:space:]')"
+    if [ -n "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+service_name="$(printf '%s' "${TAPHAPTIC_SERVICE_NAME:-}" | tr -d '[:space:]')"
+if [ -z "$service_name" ]; then
+  case "$bind_host" in
+    ""|"0.0.0.0"|"::"|"[::]"|"*"|"127.0.0.1"|"::1")
+      service_name="$(resolve_lan_ipv4 || true)"
+      ;;
+    *)
+      service_name="$bind_host"
+      ;;
+  esac
+fi
+if [ -n "$service_name" ]; then
+  export TAPHAPTIC_SERVICE_NAME="$service_name"
+fi
+
 probe_host="$bind_host"
 case "$probe_host" in
   ""|"0.0.0.0"|"::"|"[::]"|"*")
@@ -63,7 +101,11 @@ chmod 600 "$pid_file"
 attempt=0
 while [ "$attempt" -lt 25 ]; do
   if "$ctl_path" health --base-url "$health_base_url" --timeout-ms 1000 >/dev/null 2>&1; then
-    printf '%s\n' "API started (pid=$api_pid), logs: $log_file"
+    if [ -n "$service_name" ]; then
+      printf '%s\n' "API started (pid=$api_pid), bonjour service=$service_name, logs: $log_file"
+    else
+      printf '%s\n' "API started (pid=$api_pid), logs: $log_file"
+    fi
     exit 0
   fi
 
