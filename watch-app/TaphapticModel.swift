@@ -601,7 +601,9 @@ final class TaphapticModel: ObservableObject {
             // Native success cue includes both haptic and completion chime.
             WKInterfaceDevice.current().play(.success)
         case (true, false):
-            playSound(for: .completed)
+            // Avoid speech synthesis fallback and keep the native completion cue.
+            speechSynthesizer.stopSpeaking(at: .immediate)
+            WKInterfaceDevice.current().play(.success)
         case (false, true):
             speechSynthesizer.stopSpeaking(at: .immediate)
             // Prefer a haptic with minimal or no tonal accompaniment.
