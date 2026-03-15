@@ -69,3 +69,32 @@ final class TaphapticCursorStoreTests: XCTestCase {
         XCTAssertEqual(defaults.string(forKey: "cursor.string"), String(legacyValue))
     }
 }
+
+final class TaphapticSessionPollGuardTests: XCTestCase {
+    func testShouldApplyResponseWhenCurrentSessionMatchesRequest() {
+        XCTAssertTrue(
+            TaphapticSessionPollGuard.shouldApplyResponse(
+                requestedSessionToken: "watch-token-a",
+                currentSessionToken: "watch-token-a"
+            )
+        )
+    }
+
+    func testShouldNotApplyResponseWhenSessionTokenRotates() {
+        XCTAssertFalse(
+            TaphapticSessionPollGuard.shouldApplyResponse(
+                requestedSessionToken: "watch-token-a",
+                currentSessionToken: "watch-token-b"
+            )
+        )
+    }
+
+    func testShouldNotApplyResponseWhenSessionWasCleared() {
+        XCTAssertFalse(
+            TaphapticSessionPollGuard.shouldApplyResponse(
+                requestedSessionToken: "watch-token-a",
+                currentSessionToken: nil
+            )
+        )
+    }
+}

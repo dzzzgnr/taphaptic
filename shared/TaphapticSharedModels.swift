@@ -1,5 +1,26 @@
 import Foundation
 
+enum TaphapticSessionPollGuard {
+    static func shouldApplyResponse(
+        requestedSessionToken: String,
+        currentSessionToken: String?
+    ) -> Bool {
+        guard
+            let requested = normalized(requestedSessionToken),
+            let current = normalized(currentSessionToken)
+        else {
+            return false
+        }
+
+        return current == requested
+    }
+
+    private static func normalized(_ token: String?) -> String? {
+        let trimmed = (token ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
 enum TaphapticEventType: String, Codable, CaseIterable, Sendable {
     case completed
     case subagentCompleted = "subagent_completed"
