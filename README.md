@@ -36,6 +36,8 @@ Bootstrap builds `taphaptic-api` and `taphapticctl` from local source.
 ./scripts/start-api.sh
 ```
 
+This runs in the background and prints the API log path.
+
 2. Start a new Claude session so hooks load.
 
 3. Optional verification event:
@@ -44,10 +46,31 @@ Bootstrap builds `taphaptic-api` and `taphapticctl` from local source.
 ./scripts/test-claude-connection.sh stop
 ```
 
-4. Optional cleanup:
+4. Stop the API when you are done (recommended):
 
 ```sh
 ./scripts/stop-api.sh
+```
+
+## API Lifecycle Quick Reference
+
+Start:
+
+```sh
+./scripts/start-api.sh
+```
+
+Stop:
+
+```sh
+./scripts/stop-api.sh
+```
+
+Restart after Wi-Fi/network/IP changes:
+
+```sh
+./scripts/stop-api.sh
+./scripts/start-api.sh
 ```
 
 ## Uninstall
