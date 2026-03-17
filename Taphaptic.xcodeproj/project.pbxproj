@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0D1A2B3C4D5E6F7089AB1234 /* taphaptic.icon in Resources */ = {isa = PBXBuildFile; fileRef = 0D1A2B3C4D5E6F7089AB5678 /* taphaptic.icon */; };
 		0EFC4E7EBF9CEA224E34F59B /* TaphapticSharedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66CED5F91B5B592C2C97F1B2 /* TaphapticSharedModels.swift */; };
 		238546A4E03C24356FC9943D /* TaphapticModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDDBBF7D9469AA4346EB32FE /* TaphapticModel.swift */; };
 		2A7820C15349200EB02E5803 /* TaphapticServiceDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF20D4F2ABA944087F2BE99E /* TaphapticServiceDiscovery.swift */; };
@@ -23,6 +24,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0D1A2B3C4D5E6F7089AB5678 /* taphaptic.icon */ = {isa = PBXFileReference; lastKnownFileType = folder; path = taphaptic.icon; sourceTree = "<group>"; };
 		53FD74ECCFCD3F657C4C1FE0 /* BlurTextTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlurTextTransition.swift; sourceTree = "<group>"; };
 		66CED5F91B5B592C2C97F1B2 /* TaphapticSharedModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaphapticSharedModels.swift; sourceTree = "<group>"; };
 		6CE8BE767D0EFDC05738DF3C /* Taphaptic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Taphaptic.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -58,6 +60,7 @@
 		67857B20C449EB5B0F1FC9CA /* watch-app */ = {
 			isa = PBXGroup;
 			children = (
+				0D1A2B3C4D5E6F7089AB5678 /* taphaptic.icon */,
 				53FD74ECCFCD3F657C4C1FE0 /* BlurTextTransition.swift */,
 				988EA82B7250B4D755851D76 /* ContentView.swift */,
 				BDA1C59A34190840D2584013 /* TaphapticApp.swift */,
@@ -121,6 +124,7 @@
 			buildConfigurationList = 73C6DB2DCB3ED068C0F9B2D9 /* Build configuration list for PBXNativeTarget "Taphaptic" */;
 			buildPhases = (
 				1A392910698A5FC9DCAB00F3 /* Sources */,
+				0D1A2B3C4D5E6F7089ABCDEF /* Resources */,
 			);
 			buildRules = (
 			);
@@ -166,6 +170,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		0D1A2B3C4D5E6F7089ABCDEF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0D1A2B3C4D5E6F7089AB1234 /* taphaptic.icon in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		1A392910698A5FC9DCAB00F3 /* Sources */ = {
@@ -293,7 +308,7 @@
 		B73C8562208F235C499CDDD9 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = taphaptic;
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Taphaptic;
@@ -316,7 +331,7 @@
 		E0E48C35FC9B187C812CFDC0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = taphaptic;
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Taphaptic;
