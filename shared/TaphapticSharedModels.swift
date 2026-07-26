@@ -30,13 +30,13 @@ enum TaphapticEventType: String, Codable, CaseIterable, Sendable {
     var fallbackTitle: String {
         switch self {
         case .completed:
-            return "Claude completed"
+            return "Agent completed"
         case .subagentCompleted:
-            return "Claude subagent completed"
+            return "Subagent completed"
         case .failed:
-            return "Failed"
+            return "Agent failed"
         case .attention:
-            return "Claude needs your attention"
+            return "Agent needs your attention"
         }
     }
 
@@ -45,11 +45,11 @@ enum TaphapticEventType: String, Codable, CaseIterable, Sendable {
         case .completed:
             return "AGENT COMPLETED A TASK"
         case .subagentCompleted:
-            return "Claude Code subagent finished background work."
+            return "A subagent finished background work."
         case .failed:
-            return "Claude Code reported a failure."
+            return "The agent reported a failure."
         case .attention:
-            return "Claude Code needs your attention."
+            return "The agent needs your attention."
         }
     }
 
@@ -75,9 +75,32 @@ struct TaphapticEvent: Codable, Equatable, Identifiable, Sendable {
     let title: String?
     let body: String?
 
+    var sourceDisplayName: String {
+        switch source?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "codex":
+            return "Codex"
+        case "claude", "claude-code":
+            return "Claude Code"
+        default:
+            return "Agent"
+        }
+    }
+
     var resolvedTitle: String {
         let trimmedTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmedTitle.isEmpty ? type.fallbackTitle : trimmedTitle
+        guard trimmedTitle.isEmpty else {
+            return trimmedTitle
+        }
+        switch type {
+        case .completed:
+            return "\(sourceDisplayName) completed"
+        case .subagentCompleted:
+            return "\(sourceDisplayName) subagent completed"
+        case .failed:
+            return "\(sourceDisplayName) failed"
+        case .attention:
+            return "\(sourceDisplayName) needs your attention"
+        }
     }
 
     var resolvedBody: String {

@@ -7,7 +7,7 @@ scope="user"
 provider="all"
 
 usage() {
-  printf '%s\n' "usage: ./scripts/bootstrap-watch.sh [--scope user|project] [--provider claude|codex|all]"
+  printf '%s\n' "usage: ./scripts/connect-agents.sh [--scope user|project] [--provider claude|codex|all]"
 }
 
 while [ "$#" -gt 0 ]; do
@@ -57,17 +57,16 @@ case "$provider" in
     ;;
 esac
 
-"/bin/sh" "$repo_root/scripts/doctor.sh"
+ctl_path="$("$repo_root/scripts/ensure-binary.sh" taphapticctl)"
 
-"/bin/sh" "$repo_root/scripts/start-api.sh"
-"/bin/sh" "$repo_root/scripts/connect-agents.sh" --scope "$scope" --provider "$provider"
-
-if ! open "$repo_root/Taphaptic.xcodeproj"; then
-  printf '%s\n' "Warning: failed to open Xcode project automatically." >&2
+if [ -n "${TAPHAPTIC_API_BASE_URL:-}" ]; then
+  "$ctl_path" install-consumer \
+    --provider "$provider" \
+    --scope "$scope" \
+    --api-base-url "$TAPHAPTIC_API_BASE_URL"
+else
+  "$ctl_path" install-consumer --provider "$provider" --scope "$scope"
 fi
 
-printf '\n'
-printf '%s\n' "Next steps:"
-printf '%s\n' "1. In Xcode, select scheme Taphaptic and your physical Apple Watch destination."
-printf '%s\n' "2. Press Run to install the app."
-printf '%s\n' "3. Open Taphaptic on the watch and enter the 4-digit code shown above."
+printf '%s\n' "Taphaptic onboarding is ready for provider: $provider."
+printf '%s\n' "Start new Claude Code and Codex tasks so updated hooks are loaded."

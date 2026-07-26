@@ -21,8 +21,8 @@ func TestEnsureForInstallationPersists(t *testing.T) {
 	if channel.ID == "" {
 		t.Fatalf("channel ID is empty")
 	}
-	if channel.ClaudeSessionToken == "" {
-		t.Fatalf("Claude session token is empty")
+	if channel.ProducerToken == "" {
+		t.Fatalf("producer token is empty")
 	}
 
 	reopened, err := OpenStore(statePath)

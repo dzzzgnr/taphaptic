@@ -113,7 +113,23 @@ if ! confirm; then
   exit 0
 fi
 
-step "1/3" "Stopping API process"
+step "1/4" "Deleting relay data and removing agent hooks"
+if [ -x "$install_root/bin/taphapticctl" ]; then
+  if "$install_root/bin/taphapticctl" delete-installation >/dev/null 2>&1; then
+    ok "Deleted the relay installation and device registrations."
+  else
+    warn "Could not reach the relay to delete data. See the privacy policy for deletion support."
+  fi
+  if "$install_root/bin/taphapticctl" remove-hooks --provider all --scope user >/dev/null 2>&1; then
+    ok "Removed Taphaptic user hooks from Claude Code and Codex."
+  else
+    warn "Could not remove one or more user hook entries automatically."
+  fi
+else
+  warn "Installed taphapticctl was not found; skipped remote deletion and hook cleanup."
+fi
+
+step "2/4" "Stopping API process"
 if /bin/sh "$repo_root/scripts/stop-api.sh" >/dev/null 2>&1; then
   ok "API stopped (or was already stopped)."
 else
@@ -124,14 +140,14 @@ if command -v pkill >/dev/null 2>&1; then
   pkill -f taphaptic-api >/dev/null 2>&1 || true
 fi
 
-step "2/3" "Removing runtime files"
+step "3/4" "Removing runtime files"
 removed_count=0
 remove_dir "$install_root" "install root"
 remove_dir "$api_state_root" "API state"
 remove_dir "$log_root" "log directory"
 
 if [ "$restore_settings" = "1" ]; then
-  step "3/3" "Restoring Claude settings from latest backup"
+  step "4/4" "Restoring Claude settings from latest backup"
   backup_path="$(
     find "$(dirname "$claude_settings")" -maxdepth 1 -type f -name "$(basename "$claude_settings").backup.*" -print 2>/dev/null \
       | LC_ALL=C sort \
@@ -144,11 +160,10 @@ if [ "$restore_settings" = "1" ]; then
     warn "No Claude settings backup found. Skipped restore."
   fi
 else
-  step "3/3" "Claude settings"
+  step "4/4" "Claude settings"
   info "Skipped restore. Use --restore-claude-settings if you want to revert from backup."
 fi
 
 printf '\n%sUninstall complete.%s\n' "$c_bold" "$c_reset"
 info "Removed paths: $removed_count"
 info "Reinstall anytime with: ./scripts/bootstrap-watch.sh"
-

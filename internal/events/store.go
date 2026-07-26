@@ -20,21 +20,29 @@ const (
 )
 
 type Event struct {
-	ID        int64     `json:"id"`
-	ChannelID string    `json:"channelId,omitempty"`
-	Type      Type      `json:"type"`
-	CreatedAt time.Time `json:"createdAt"`
-	Source    string    `json:"source,omitempty"`
-	Title     string    `json:"title,omitempty"`
-	Body      string    `json:"body,omitempty"`
+	ID            int64     `json:"id"`
+	SchemaVersion int       `json:"schemaVersion,omitempty"`
+	ChannelID     string    `json:"channelId,omitempty"`
+	Type          Type      `json:"type"`
+	CreatedAt     time.Time `json:"createdAt"`
+	OccurredAt    time.Time `json:"occurredAt,omitempty"`
+	Source        string    `json:"source,omitempty"`
+	SourceEvent   string    `json:"sourceEvent,omitempty"`
+	DedupeKey     string    `json:"dedupeKey,omitempty"`
+	Title         string    `json:"title,omitempty"`
+	Body          string    `json:"body,omitempty"`
 }
 
 type AppendInput struct {
-	ChannelID string
-	Type      Type
-	Source    string
-	Title     string
-	Body      string
+	SchemaVersion int
+	ChannelID     string
+	Type          Type
+	OccurredAt    time.Time
+	Source        string
+	SourceEvent   string
+	DedupeKey     string
+	Title         string
+	Body          string
 }
 
 type Store struct {
@@ -122,24 +130,56 @@ func (s *Store) Append(eventType Type) (Event, error) {
 }
 
 func (s *Store) AppendInput(input AppendInput) (Event, error) {
+	event, _, err := s.AppendUnique(input)
+	return event, err
+}
+
+// AppendUnique appends an event unless the same non-empty deduplication key
+// already exists in the channel. The bool reports whether a new event was
+// created.
+func (s *Store) AppendUnique(input AppendInput) (Event, bool, error) {
 	if _, ok := ParseType(string(input.Type)); !ok {
-		return Event{}, fmt.Errorf("invalid event type %q", input.Type)
+		return Event{}, false, fmt.Errorf("invalid event type %q", input.Type)
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	channelID := strings.TrimSpace(input.ChannelID)
+	dedupeKey := strings.TrimSpace(input.DedupeKey)
+	if dedupeKey != "" {
+		for index := len(s.events) - 1; index >= 0; index-- {
+			existing := s.events[index]
+			if strings.TrimSpace(existing.ChannelID) == channelID &&
+				strings.TrimSpace(existing.DedupeKey) == dedupeKey {
+				return existing, false, nil
+			}
+		}
+	}
+
 	previousEvents := append([]Event(nil), s.events...)
 	previousNextID := s.nextID
 
+	schemaVersion := input.SchemaVersion
+	if schemaVersion <= 0 {
+		schemaVersion = 1
+	}
+	occurredAt := input.OccurredAt.UTC()
+	if input.OccurredAt.IsZero() {
+		occurredAt = time.Now().UTC()
+	}
 	event := Event{
-		ID:        s.nextID,
-		ChannelID: strings.TrimSpace(input.ChannelID),
-		Type:      input.Type,
-		CreatedAt: time.Now().UTC(),
-		Source:    strings.TrimSpace(input.Source),
-		Title:     strings.TrimSpace(input.Title),
-		Body:      strings.TrimSpace(input.Body),
+		ID:            s.nextID,
+		SchemaVersion: schemaVersion,
+		ChannelID:     channelID,
+		Type:          input.Type,
+		CreatedAt:     time.Now().UTC(),
+		OccurredAt:    occurredAt,
+		Source:        strings.TrimSpace(input.Source),
+		SourceEvent:   strings.TrimSpace(input.SourceEvent),
+		DedupeKey:     dedupeKey,
+		Title:         strings.TrimSpace(input.Title),
+		Body:          strings.TrimSpace(input.Body),
 	}
 	s.nextID++
 
@@ -151,10 +191,10 @@ func (s *Store) AppendInput(input AppendInput) (Event, error) {
 	if err := s.persistLocked(); err != nil {
 		s.events = previousEvents
 		s.nextID = previousNextID
-		return Event{}, err
+		return Event{}, false, err
 	}
 
-	return event, nil
+	return event, true, nil
 }
 
 func (s *Store) Since(afterID int64) []Event {
@@ -214,6 +254,32 @@ func (s *Store) LatestForChannel(channelID string) (Event, bool) {
 	}
 
 	return Event{}, false
+}
+
+func (s *Store) RemoveForChannel(channelID string) error {
+	channelID = strings.TrimSpace(channelID)
+	if channelID == "" {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	previousEvents := append([]Event(nil), s.events...)
+	filtered := make([]Event, 0, len(s.events))
+	for _, event := range s.events {
+		if strings.TrimSpace(event.ChannelID) != channelID {
+			filtered = append(filtered, event)
+		}
+	}
+	if len(filtered) == len(s.events) {
+		return nil
+	}
+	s.events = filtered
+	if err := s.persistLocked(); err != nil {
+		s.events = previousEvents
+		return err
+	}
+	return nil
 }
 
 type persistedState struct {

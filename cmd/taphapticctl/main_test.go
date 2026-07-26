@@ -110,6 +110,109 @@ func TestMergeClaudeHooksInvalidHooksType(t *testing.T) {
 	}
 }
 
+func TestMergeCodexHooksIsIdempotentAndPreservesExistingHooks(t *testing.T) {
+	t.Parallel()
+
+	config := map[string]any{
+		"description": "User hooks",
+		"hooks": map[string]any{
+			"Stop": []any{
+				map[string]any{
+					"hooks": []any{
+						map[string]any{
+							"type":    "command",
+							"command": "/usr/local/bin/existing-stop-hook",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if err := mergeCodexHooks(config); err != nil {
+		t.Fatalf("mergeCodexHooks first run failed: %v", err)
+	}
+	first, _ := json.Marshal(config)
+	if err := mergeCodexHooks(config); err != nil {
+		t.Fatalf("mergeCodexHooks second run failed: %v", err)
+	}
+	second, _ := json.Marshal(config)
+	if !bytes.Equal(first, second) {
+		t.Fatalf("mergeCodexHooks is not idempotent:\nfirst=%s\nsecond=%s", first, second)
+	}
+	raw := string(second)
+	if !strings.Contains(raw, "/usr/local/bin/existing-stop-hook") {
+		t.Fatalf("existing hook was removed: %s", raw)
+	}
+	for _, event := range []string{"Stop", "SubagentStop", "PermissionRequest"} {
+		if !strings.Contains(raw, `"`+event+`"`) {
+			t.Fatalf("%s hook missing: %s", event, raw)
+		}
+	}
+	if config["description"] != "User hooks" {
+		t.Fatalf("existing description was replaced")
+	}
+}
+
+func TestRemoveTaphapticHooksPreservesOtherHandlers(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "hooks.json")
+	raw := []byte(`{
+  "description": "User hooks",
+  "hooks": {
+    "Stop": [{
+      "hooks": [
+        {"type":"command","command":"/usr/local/bin/existing"},
+        {"type":"command","command":"/bin/sh \"${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook\" codex stop"}
+      ]
+    }]
+  }
+}`)
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatalf("write hooks: %v", err)
+	}
+	if err := removeTaphapticHooksAtPath(path); err != nil {
+		t.Fatalf("removeTaphapticHooksAtPath failed: %v", err)
+	}
+	updated, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read hooks: %v", err)
+	}
+	if strings.Contains(strings.ToLower(string(updated)), "taphaptic-hook") {
+		t.Fatalf("Taphaptic hook remains: %s", updated)
+	}
+	if !strings.Contains(string(updated), "/usr/local/bin/existing") {
+		t.Fatalf("unrelated handler was removed: %s", updated)
+	}
+	if !strings.Contains(string(updated), "User hooks") {
+		t.Fatalf("unrelated metadata was removed: %s", updated)
+	}
+}
+
+func TestEventForSourceActionMapsCodexAndDedupeFields(t *testing.T) {
+	t.Parallel()
+
+	payload, err := eventForSourceAction("codex", "permission_request", map[string]any{
+		"session_id": "session-a",
+		"turn_id":    "turn-b",
+	})
+	if err != nil {
+		t.Fatalf("eventForSourceAction returned error: %v", err)
+	}
+	if payload.Source != "codex" || payload.Type != "attention" {
+		t.Fatalf("unexpected payload: %+v", payload)
+	}
+	if payload.SourceEvent != "PermissionRequest" {
+		t.Fatalf("source event=%q want PermissionRequest", payload.SourceEvent)
+	}
+	if payload.DedupeKey == "" ||
+		!strings.Contains(payload.DedupeKey, "session-a") ||
+		!strings.Contains(payload.DedupeKey, "turn-b") {
+		t.Fatalf("unexpected dedupe key: %q", payload.DedupeKey)
+	}
+}
+
 func TestResolveSettingsPath(t *testing.T) {
 	t.Parallel()
 

@@ -18,7 +18,9 @@ import (
 	"time"
 
 	"taphaptic/internal/api"
+	"taphaptic/internal/apns"
 	"taphaptic/internal/channels"
+	"taphaptic/internal/devices"
 	"taphaptic/internal/events"
 	"taphaptic/internal/installations"
 	"taphaptic/internal/watchpairings"
@@ -33,6 +35,7 @@ const (
 	defaultChannelsFileName      = "channels.json"
 	defaultInstallationsFileName = "installations.json"
 	defaultWatchCodesFileName    = "watch_pairings.json"
+	defaultDevicesFileName       = "devices.json"
 	defaultBonjourServiceType    = "_taphaptic._tcp"
 	defaultBonjourDomain         = "local"
 )
@@ -45,6 +48,14 @@ type config struct {
 	channelsStatePath      string
 	installationsStatePath string
 	watchCodesStatePath    string
+	devicesStatePath       string
+	apnsKeyID              string
+	apnsTeamID             string
+	apnsTopic              string
+	apnsPrivateKeyPath     string
+	apnsPrivateKey         string
+	apnsEnvironment        string
+	trustProxyHeaders      bool
 }
 
 type bonjourAdvertiser struct {
@@ -85,6 +96,17 @@ func run(logger *log.Logger) error {
 	if err != nil {
 		return fmt.Errorf("watch_pairings.open_failed: %w", err)
 	}
+	deviceStore, err := devices.OpenStore(cfg.devicesStatePath)
+	if err != nil {
+		return fmt.Errorf("devices.open_failed: %w", err)
+	}
+	pushSender, err := loadPushSender(cfg)
+	if err != nil {
+		return fmt.Errorf("apns.configure_failed: %w", err)
+	}
+	if pushSender == nil {
+		logger.Printf("api.push_disabled reason=missing_apns_configuration")
+	}
 
 	handler := api.NewHandler(api.Config{
 		Logger:            logger,
@@ -92,6 +114,11 @@ func run(logger *log.Logger) error {
 		ChannelStore:      channelStore,
 		InstallationStore: installationStore,
 		WatchPairingStore: watchCodeStore,
+		DeviceStore:       deviceStore,
+		PushSender:        pushSender,
+		APNSTopic:         cfg.apnsTopic,
+		APNSEnvironment:   cfg.apnsEnvironment,
+		TrustProxyHeaders: cfg.trustProxyHeaders,
 	})
 
 	addr := net.JoinHostPort(cfg.host, strconv.Itoa(cfg.port))
@@ -99,6 +126,9 @@ func run(logger *log.Logger) error {
 		Addr:              addr,
 		Handler:           handler.Routes(),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	advertiser, advertiseErr := startBonjour(cfg.serviceName, cfg.port)
@@ -114,13 +144,15 @@ func run(logger *log.Logger) error {
 	}()
 
 	logger.Printf(
-		"api.started addr=%s service=%s events=%s channels=%s installations=%s watch_pairings=%s",
+		"api.started addr=%s service=%s events=%s channels=%s installations=%s watch_pairings=%s devices=%s push=%t",
 		httpServer.Addr,
 		cfg.serviceName,
 		cfg.eventsStatePath,
 		cfg.channelsStatePath,
 		cfg.installationsStatePath,
 		cfg.watchCodesStatePath,
+		cfg.devicesStatePath,
+		pushSender != nil,
 	)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -176,6 +208,11 @@ func loadConfig() (config, error) {
 		dataDir = filepath.Join(userConfigDir, defaultDataDirName)
 	}
 
+	trustProxyHeaders, err := strconv.ParseBool(valueWithFallbacks("false", "TAPHAPTIC_TRUST_PROXY_HEADERS"))
+	if err != nil {
+		return config{}, fmt.Errorf("invalid TAPHAPTIC_TRUST_PROXY_HEADERS value")
+	}
+
 	return config{
 		host:                   host,
 		port:                   port,
@@ -184,7 +221,55 @@ func loadConfig() (config, error) {
 		channelsStatePath:      statePathFromEnv(filepath.Join(dataDir, defaultChannelsFileName), "TAPHAPTIC_CHANNELS_FILE"),
 		installationsStatePath: statePathFromEnv(filepath.Join(dataDir, defaultInstallationsFileName), "TAPHAPTIC_INSTALLATIONS_FILE"),
 		watchCodesStatePath:    statePathFromEnv(filepath.Join(dataDir, defaultWatchCodesFileName), "TAPHAPTIC_WATCH_PAIRINGS_FILE"),
+		devicesStatePath:       statePathFromEnv(filepath.Join(dataDir, defaultDevicesFileName), "TAPHAPTIC_DEVICES_FILE"),
+		apnsKeyID:              strings.TrimSpace(valueWithFallbacks("", "TAPHAPTIC_APNS_KEY_ID")),
+		apnsTeamID:             strings.TrimSpace(valueWithFallbacks("", "TAPHAPTIC_APNS_TEAM_ID")),
+		apnsTopic:              strings.TrimSpace(valueWithFallbacks("", "TAPHAPTIC_APNS_TOPIC")),
+		apnsPrivateKeyPath:     strings.TrimSpace(valueWithFallbacks("", "TAPHAPTIC_APNS_PRIVATE_KEY_PATH")),
+		apnsPrivateKey:         strings.TrimSpace(valueWithFallbacks("", "TAPHAPTIC_APNS_PRIVATE_KEY")),
+		apnsEnvironment:        strings.TrimSpace(valueWithFallbacks("production", "TAPHAPTIC_APNS_ENVIRONMENT")),
+		trustProxyHeaders:      trustProxyHeaders,
 	}, nil
+}
+
+func loadPushSender(cfg config) (*apns.Client, error) {
+	values := []string{cfg.apnsKeyID, cfg.apnsTeamID, cfg.apnsTopic}
+	configured := 0
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			configured++
+		}
+	}
+	keySources := 0
+	if cfg.apnsPrivateKeyPath != "" {
+		keySources++
+	}
+	if cfg.apnsPrivateKey != "" {
+		keySources++
+	}
+	if configured == 0 && keySources == 0 {
+		return nil, nil
+	}
+	if configured != len(values) || keySources != 1 {
+		return nil, errors.New("TAPHAPTIC_APNS_KEY_ID, TAPHAPTIC_APNS_TEAM_ID, TAPHAPTIC_APNS_TOPIC, and exactly one of TAPHAPTIC_APNS_PRIVATE_KEY_PATH or TAPHAPTIC_APNS_PRIVATE_KEY must be set together")
+	}
+	raw := []byte(cfg.apnsPrivateKey)
+	if cfg.apnsPrivateKeyPath != "" {
+		var err error
+		raw, err = os.ReadFile(cfg.apnsPrivateKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("read private key: %w", err)
+		}
+	}
+	privateKey, err := apns.ParsePrivateKey(raw)
+	if err != nil {
+		return nil, err
+	}
+	return apns.NewClient(apns.Config{
+		KeyID:      cfg.apnsKeyID,
+		TeamID:     cfg.apnsTeamID,
+		PrivateKey: privateKey,
+	})
 }
 
 func startBonjour(serviceName string, port int) (*bonjourAdvertiser, error) {

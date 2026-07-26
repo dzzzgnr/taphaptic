@@ -692,10 +692,7 @@ struct ContentView: View {
     private var statusBadge: some View {
         ZStack {
             if model.displayState == .waiting {
-                TimelineView(.animation) { context in
-                    let cycleSeconds = 0.9
-                    let progress = context.date.timeIntervalSinceReferenceDate
-                        .truncatingRemainder(dividingBy: cycleSeconds) / cycleSeconds
+                if accessibilityReduceMotion {
                     Circle()
                         .trim(from: 0.14, to: 0.9)
                         .stroke(
@@ -710,7 +707,27 @@ struct ContentView: View {
                             style: StrokeStyle(lineWidth: 4, lineCap: .round)
                         )
                         .frame(width: 44, height: 44)
-                        .rotationEffect(.degrees(progress * 360))
+                } else {
+                    TimelineView(.animation) { context in
+                        let cycleSeconds = 0.9
+                        let progress = context.date.timeIntervalSinceReferenceDate
+                            .truncatingRemainder(dividingBy: cycleSeconds) / cycleSeconds
+                        Circle()
+                            .trim(from: 0.14, to: 0.9)
+                            .stroke(
+                                AngularGradient(
+                                    colors: [
+                                        Color(red: 0.20, green: 0.63, blue: 0.98),
+                                        Color(red: 0.41, green: 0.95, blue: 0.74),
+                                        Color(red: 0.20, green: 0.63, blue: 0.98),
+                                    ],
+                                    center: .center
+                                ),
+                                style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                            )
+                            .frame(width: 44, height: 44)
+                            .rotationEffect(.degrees(progress * 360))
+                    }
                 }
             } else if model.displayState == .success {
                 Circle()
@@ -738,41 +755,95 @@ struct ContentView: View {
 private struct WatchSettingsView: View {
     @EnvironmentObject private var model: TaphapticModel
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var notifications = TaphapticNotificationCoordinator.shared
+    @State private var showsResetConfirmation = false
 
     var body: some View {
-        VStack(spacing: 12) {
-            Toggle(
-                "Sound",
-                isOn: Binding(
-                    get: { model.watchSoundEnabled },
-                    set: { model.setWatchSoundEnabled($0) }
+        ScrollView {
+            VStack(spacing: 12) {
+                Toggle(
+                    "Sound",
+                    isOn: Binding(
+                        get: { model.watchSoundEnabled },
+                        set: { model.setWatchSoundEnabled($0) }
+                    )
                 )
-            )
 
-            Toggle(
-                "Haptic",
-                isOn: Binding(
-                    get: { model.watchHapticEnabled },
-                    set: { model.setWatchHapticEnabled($0) }
+                Toggle(
+                    "Haptic",
+                    isOn: Binding(
+                        get: { model.watchHapticEnabled },
+                        set: { model.setWatchHapticEnabled($0) }
+                    )
                 )
-            )
 
-            Spacer(minLength: 0)
+                Divider()
 
-            Button("Reset app") {
-                model.resetPairing()
-                dismiss()
+                VStack(alignment: .leading, spacing: 5) {
+                    Label(notifications.authorizationState.label, systemImage: "bell.badge")
+                        .font(.footnote.weight(.semibold))
+
+                    if notifications.authorizationState == .denied {
+                        Text("Enable Taphaptic notifications in the Watch app on iPhone.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    } else if notifications.authorizationState == .unknown {
+                        Button("Enable notifications") {
+                            model.requestNotificationAuthorization()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .accessibilityHint("Allows alerts from Claude Code and Codex.")
+                    } else {
+                        Button(model.isSendingTestNotification ? "Sending…" : "Send test notification") {
+                            model.sendTestNotification()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .disabled(model.isSendingTestNotification)
+                    }
+
+                    if let message = model.notificationMessage ?? notifications.registrationError {
+                        Text(message)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityLabel("Notification status: \(message)")
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Divider()
+
+                Button("Reset app", role: .destructive) {
+                    showsResetConfirmation = true
+                }
+                .buttonStyle(.bordered)
+                .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .buttonStyle(.bordered)
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal)
+            .padding(.top)
+            .padding(.bottom, 8)
         }
-        .padding(.horizontal)
-        .padding(.top)
-        .padding(.bottom, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle("Settings")
         .toolbar(.visible, for: .navigationBar)
-        .ignoresSafeArea(.container, edges: .bottom)
+        .confirmationDialog(
+            "Reset Taphaptic?",
+            isPresented: $showsResetConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Reset app", role: .destructive) {
+                model.resetPairing()
+                dismiss()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the pairing from this watch. You will need a new code to reconnect.")
+        }
+        .task {
+            await notifications.refreshAuthorizationState()
+        }
     }
 }
 

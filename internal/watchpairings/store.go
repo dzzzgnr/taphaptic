@@ -247,6 +247,32 @@ func (s *Store) GetByID(codeID string) (PairingCode, bool) {
 	return code, ok
 }
 
+func (s *Store) RemoveForInstallation(installationID string) error {
+	installationID = strings.TrimSpace(installationID)
+	if installationID == "" {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	previous := s.cloneLocked()
+	removed := false
+	for codeID, code := range s.byID {
+		if code.InstallationID == installationID {
+			delete(s.byID, codeID)
+			removed = true
+		}
+	}
+	if !removed {
+		return nil
+	}
+	if err := s.persistLocked(); err != nil {
+		s.restoreLocked(previous)
+		return err
+	}
+	return nil
+}
+
 func (s *Store) hasActiveHashLocked(hash string, now time.Time) bool {
 	for _, pair := range s.byID {
 		if pair.CodeHash != hash {

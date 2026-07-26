@@ -14,24 +14,25 @@ import (
 )
 
 type Channel struct {
-	ID                 string    `json:"id"`
-	InstallationID     string    `json:"installationId"`
-	ClaudeSessionToken string    `json:"claudeSessionToken"`
-	PhoneSessionToken  string    `json:"phoneSessionToken,omitempty"`
-	WatchSessionToken  string    `json:"watchSessionToken,omitempty"`
-	CreatedAt          time.Time `json:"createdAt"`
-	UpdatedAt          time.Time `json:"updatedAt"`
-	PairedAt           time.Time `json:"pairedAt,omitempty"`
+	ID                string    `json:"id"`
+	InstallationID    string    `json:"installationId"`
+	ProducerToken     string    `json:"producerToken"`
+	LegacyClaudeToken string    `json:"claudeSessionToken,omitempty"`
+	PhoneSessionToken string    `json:"phoneSessionToken,omitempty"`
+	WatchSessionToken string    `json:"watchSessionToken,omitempty"`
+	CreatedAt         time.Time `json:"createdAt"`
+	UpdatedAt         time.Time `json:"updatedAt"`
+	PairedAt          time.Time `json:"pairedAt,omitempty"`
 }
 
 type Store struct {
-	mu             sync.RWMutex
-	byID           map[string]Channel
-	byInstallation map[string]string
-	byClaudeToken  map[string]string
-	byPhoneToken   map[string]string
-	byWatchToken   map[string]string
-	statePath      string
+	mu              sync.RWMutex
+	byID            map[string]Channel
+	byInstallation  map[string]string
+	byProducerToken map[string]string
+	byPhoneToken    map[string]string
+	byWatchToken    map[string]string
+	statePath       string
 }
 
 type persistedState struct {
@@ -64,11 +65,16 @@ func OpenStore(statePath string) (*Store, error) {
 	for _, channel := range state.Channels {
 		channel.ID = strings.TrimSpace(channel.ID)
 		channel.InstallationID = strings.TrimSpace(channel.InstallationID)
-		channel.ClaudeSessionToken = strings.TrimSpace(channel.ClaudeSessionToken)
+		channel.ProducerToken = strings.TrimSpace(channel.ProducerToken)
+		channel.LegacyClaudeToken = strings.TrimSpace(channel.LegacyClaudeToken)
+		if channel.ProducerToken == "" {
+			channel.ProducerToken = channel.LegacyClaudeToken
+		}
+		channel.LegacyClaudeToken = ""
 		channel.PhoneSessionToken = strings.TrimSpace(channel.PhoneSessionToken)
 		channel.WatchSessionToken = strings.TrimSpace(channel.WatchSessionToken)
 
-		if channel.ID == "" || channel.InstallationID == "" || channel.ClaudeSessionToken == "" {
+		if channel.ID == "" || channel.InstallationID == "" || channel.ProducerToken == "" {
 			continue
 		}
 
@@ -81,7 +87,7 @@ func OpenStore(statePath string) (*Store, error) {
 
 		store.byID[channel.ID] = channel
 		store.byInstallation[channel.InstallationID] = channel.ID
-		store.byClaudeToken[channel.ClaudeSessionToken] = channel.ID
+		store.byProducerToken[channel.ProducerToken] = channel.ID
 		if channel.PhoneSessionToken != "" {
 			store.byPhoneToken[channel.PhoneSessionToken] = channel.ID
 		}
@@ -95,12 +101,12 @@ func OpenStore(statePath string) (*Store, error) {
 
 func newStore(statePath string) *Store {
 	return &Store{
-		byID:           make(map[string]Channel),
-		byInstallation: make(map[string]string),
-		byClaudeToken:  make(map[string]string),
-		byPhoneToken:   make(map[string]string),
-		byWatchToken:   make(map[string]string),
-		statePath:      statePath,
+		byID:            make(map[string]Channel),
+		byInstallation:  make(map[string]string),
+		byProducerToken: make(map[string]string),
+		byPhoneToken:    make(map[string]string),
+		byWatchToken:    make(map[string]string),
+		statePath:       statePath,
 	}
 }
 
@@ -123,16 +129,16 @@ func (s *Store) EnsureForInstallation(installationID string) (Channel, error) {
 	previous := s.cloneLocked()
 	now := time.Now().UTC()
 	channel := Channel{
-		ID:                 randomToken(16),
-		InstallationID:     installationID,
-		ClaudeSessionToken: randomToken(32),
-		CreatedAt:          now,
-		UpdatedAt:          now,
+		ID:             randomToken(16),
+		InstallationID: installationID,
+		ProducerToken:  randomToken(32),
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 
 	s.byID[channel.ID] = channel
 	s.byInstallation[channel.InstallationID] = channel.ID
-	s.byClaudeToken[channel.ClaudeSessionToken] = channel.ID
+	s.byProducerToken[channel.ProducerToken] = channel.ID
 
 	if err := s.persistLocked(); err != nil {
 		s.restoreLocked(previous)
@@ -243,17 +249,23 @@ func (s *Store) GetByInstallation(installationID string) (Channel, bool) {
 	return channel, found
 }
 
-func (s *Store) GetByClaudeToken(token string) (Channel, bool) {
+func (s *Store) GetByProducerToken(token string) (Channel, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	channelID, ok := s.byClaudeToken[strings.TrimSpace(token)]
+	channelID, ok := s.byProducerToken[strings.TrimSpace(token)]
 	if !ok {
 		return Channel{}, false
 	}
 
 	channel, found := s.byID[channelID]
 	return channel, found
+}
+
+// GetByClaudeToken is retained for source compatibility with older callers.
+// New code should use GetByProducerToken.
+func (s *Store) GetByClaudeToken(token string) (Channel, bool) {
+	return s.GetByProducerToken(token)
 }
 
 func (s *Store) GetByPhoneToken(token string) (Channel, bool) {
@@ -289,6 +301,40 @@ func (s *Store) All() []Channel {
 	return snapshotLocked(s.byID)
 }
 
+func (s *Store) RemoveByInstallation(installationID string) error {
+	installationID = strings.TrimSpace(installationID)
+	if installationID == "" {
+		return nil
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	channelID, ok := s.byInstallation[installationID]
+	if !ok {
+		return nil
+	}
+	channel, ok := s.byID[channelID]
+	if !ok {
+		delete(s.byInstallation, installationID)
+		return s.persistLocked()
+	}
+	previous := s.cloneLocked()
+	delete(s.byID, channel.ID)
+	delete(s.byInstallation, channel.InstallationID)
+	delete(s.byProducerToken, channel.ProducerToken)
+	if channel.PhoneSessionToken != "" {
+		delete(s.byPhoneToken, channel.PhoneSessionToken)
+	}
+	if channel.WatchSessionToken != "" {
+		delete(s.byWatchToken, channel.WatchSessionToken)
+	}
+	if err := s.persistLocked(); err != nil {
+		s.restoreLocked(previous)
+		return err
+	}
+	return nil
+}
+
 func (s *Store) cloneLocked() *Store {
 	clone := newStore(s.statePath)
 
@@ -298,8 +344,8 @@ func (s *Store) cloneLocked() *Store {
 	for key, value := range s.byInstallation {
 		clone.byInstallation[key] = value
 	}
-	for key, value := range s.byClaudeToken {
-		clone.byClaudeToken[key] = value
+	for key, value := range s.byProducerToken {
+		clone.byProducerToken[key] = value
 	}
 	for key, value := range s.byPhoneToken {
 		clone.byPhoneToken[key] = value
@@ -314,7 +360,7 @@ func (s *Store) cloneLocked() *Store {
 func (s *Store) restoreLocked(snapshot *Store) {
 	s.byID = snapshot.byID
 	s.byInstallation = snapshot.byInstallation
-	s.byClaudeToken = snapshot.byClaudeToken
+	s.byProducerToken = snapshot.byProducerToken
 	s.byPhoneToken = snapshot.byPhoneToken
 	s.byWatchToken = snapshot.byWatchToken
 }

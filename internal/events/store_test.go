@@ -155,3 +155,43 @@ func TestSinceForChannelFiltersEvents(t *testing.T) {
 		t.Fatalf("SinceForChannel returned wrong channel: got %q", channelA[0].ChannelID)
 	}
 }
+
+func TestAppendUniqueDeduplicatesWithinChannel(t *testing.T) {
+	store := NewStore(8)
+	input := AppendInput{
+		Type:        TypeCompleted,
+		ChannelID:   "channel-a",
+		Source:      "codex",
+		SourceEvent: "Stop",
+		DedupeKey:   "codex:session-a:turn-a:Stop",
+	}
+
+	first, appended, err := store.AppendUnique(input)
+	if err != nil {
+		t.Fatalf("first AppendUnique returned error: %v", err)
+	}
+	if !appended {
+		t.Fatalf("first AppendUnique was unexpectedly deduplicated")
+	}
+
+	second, appended, err := store.AppendUnique(input)
+	if err != nil {
+		t.Fatalf("second AppendUnique returned error: %v", err)
+	}
+	if appended {
+		t.Fatalf("second AppendUnique unexpectedly appended")
+	}
+	if second.ID != first.ID {
+		t.Fatalf("deduplicated event ID=%d want %d", second.ID, first.ID)
+	}
+
+	otherChannel := input
+	otherChannel.ChannelID = "channel-b"
+	_, appended, err = store.AppendUnique(otherChannel)
+	if err != nil {
+		t.Fatalf("other-channel AppendUnique returned error: %v", err)
+	}
+	if !appended {
+		t.Fatalf("same key in another channel was incorrectly deduplicated")
+	}
+}
