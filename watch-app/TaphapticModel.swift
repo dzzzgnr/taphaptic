@@ -41,11 +41,11 @@ final class TaphapticModel: ObservableObject {
             case .success:
                 return "YOUR AGENT IS DONE"
             case .subagent:
-                return "Claude subagent completed"
+                return "Subagent completed"
             case .failure:
                 return "Failed"
             case .attention:
-                return "Claude needs your attention"
+                return "Agent needs your attention"
             }
         }
 
@@ -115,8 +115,11 @@ final class TaphapticModel: ObservableObject {
     @Published private(set) var completedPulseToken = 0
     @Published private(set) var watchSoundEnabled = true
     @Published private(set) var watchHapticEnabled = true
+    @Published private(set) var isSendingTestNotification = false
+    @Published private(set) var notificationMessage: String?
 
     private let decoder: JSONDecoder
+    let notifications = TaphapticNotificationCoordinator.shared
     private let speechSynthesizer = AVSpeechSynthesizer()
     private let completedAnimationSeconds: TimeInterval = 1.25
     private let transientDisplayWindowSeconds: TimeInterval = 3
@@ -190,7 +193,9 @@ final class TaphapticModel: ObservableObject {
         self.decoder = decoder
         watchSoundEnabled = loadBool(forKey: StorageKeys.watchSoundEnabled, defaultValue: true)
         watchHapticEnabled = loadBool(forKey: StorageKeys.watchHapticEnabled, defaultValue: true)
+        migrateSessionTokenToKeychain()
         ensureWatchInstallationID()
+        configureNotifications()
         configureServiceDiscovery()
         if let configuredBaseURL = configuredBaseURLFromEnvironment() {
             cloudBaseURL = configuredBaseURL
@@ -307,6 +312,48 @@ final class TaphapticModel: ObservableObject {
         UserDefaults.standard.set(enabled, forKey: StorageKeys.watchHapticEnabled)
     }
 
+    func requestNotificationAuthorization() {
+        notificationMessage = nil
+        Task { @MainActor in
+            await notifications.requestAuthorization()
+            if notifications.authorizationState == .denied {
+                notificationMessage = "Enable notifications in the Watch app on iPhone."
+            } else if let token = notifications.pushToken {
+                await registerPushToken(token)
+            }
+        }
+    }
+
+    func sendTestNotification() {
+        guard !isSendingTestNotification else {
+            return
+        }
+        guard let sessionToken = watchSessionToken, let baseURL = cloudBaseURL else {
+            notificationMessage = "Pair the app before sending a test."
+            return
+        }
+        isSendingTestNotification = true
+        notificationMessage = nil
+        Task { @MainActor in
+            defer { isSendingTestNotification = false }
+            do {
+                let response: TestNotificationResponse = try await authorizedRequest(
+                    url: baseURL.appendingPathComponent("v1/watch/test-notification"),
+                    method: "POST",
+                    bearerToken: sessionToken,
+                    body: EmptyRequest()
+                )
+                notificationMessage = response.sent > 0
+                    ? "Test sent. Check your wrist."
+                    : "No push device is registered yet."
+            } catch RequestError.unauthorized {
+                notificationMessage = "Session expired. Pair again."
+            } catch {
+                notificationMessage = "Could not send the test notification."
+            }
+        }
+    }
+
     func submitPairingCode() {
         guard !isPairing else {
             return
@@ -354,11 +401,18 @@ final class TaphapticModel: ObservableObject {
                     body: ClaimRequest(
                         code: normalized,
                         watchInstallationId: watchInstallationID,
-                        pushToken: fallbackPushToken()
+                        pushToken: notifications.pushToken ?? ""
                     )
                 )
 
-                watchSessionToken = response.watchSessionToken
+                guard TaphapticKeychain.set(
+                    response.watchSessionToken,
+                    for: StorageKeys.watchSessionToken
+                ) else {
+                    pairingState = .failed("Secure storage failed. Generate a new code and retry.")
+                    connectionDetail = "Could not save pairing."
+                    return
+                }
                 channelID = response.channelId
                 pollIntervalSeconds = max(1, response.pollIntervalSeconds)
                 pairingCode = ""
@@ -366,10 +420,14 @@ final class TaphapticModel: ObservableObject {
                 connectionDetail = "Connected"
                 showPendingStatus("Connected. Pending.")
                 startPollingIfPossible()
+                await notifications.requestAuthorization()
+                if let token = notifications.pushToken {
+                    await registerPushToken(token)
+                }
             } catch RequestError.invalidCode {
                 pairingState = .failed("Invalid code. Check and retry.")
             } catch RequestError.expiredCode {
-                pairingState = .failed("Code expired. Generate a new code in Claude.")
+                pairingState = .failed("Code expired. Generate a new one on your Mac.")
             } catch RequestError.alreadyClaimed {
                 pairingState = .failed("Code already used. Generate a new one.")
             } catch RequestError.tooManyAttempts {
@@ -381,6 +439,9 @@ final class TaphapticModel: ObservableObject {
     }
 
     func resetPairing() {
+        let sessionToken = watchSessionToken
+        let baseURL = cloudBaseURL
+        let installationID = watchInstallationID
         stopPolling()
         watchSessionToken = nil
         channelID = nil
@@ -391,7 +452,17 @@ final class TaphapticModel: ObservableObject {
         connectionDetail = cloudBaseURL == nil ? "Waiting for local server..." : "Server found. Enter code."
         pairingHint = cloudBaseURL == nil ? "Run setup on your Mac" : "Enter 4-digit code"
         speechSynthesizer.stopSpeaking(at: .immediate)
+        notificationMessage = nil
         showPendingStatus("Enter 4-digit code")
+        if let sessionToken, let baseURL {
+            Task {
+                await unregisterPushDevice(
+                    baseURL: baseURL,
+                    sessionToken: sessionToken,
+                    watchInstallationID: installationID
+                )
+            }
+        }
     }
 
     private func applyEvent(_ event: TaphapticEvent) {
@@ -434,6 +505,14 @@ final class TaphapticModel: ObservableObject {
 
     private func startPollingIfPossible() {
         guard isActive, watchSessionToken != nil, cloudBaseURL != nil, pollTask == nil else {
+            return
+        }
+
+        if cloudBaseURL?.scheme?.lowercased() == "https" {
+            pollTask = Task { @MainActor [weak self] in
+                await self?.pollCloudStatusOnce()
+                self?.pollTask = nil
+            }
             return
         }
 
@@ -548,6 +627,94 @@ final class TaphapticModel: ObservableObject {
         }
     }
 
+    private struct EmptyRequest: Encodable {}
+
+    private struct TestNotificationResponse: Decodable {
+        let sent: Int
+    }
+
+    private struct DeviceRegistrationResponse: Decodable {
+        let registered: Bool
+    }
+
+    private struct DeviceRegistrationRequest: Encodable {
+        let watchInstallationId: String
+        let pushToken: String
+    }
+
+    private func authorizedRequest<Response: Decodable, Body: Encodable>(
+        url: URL,
+        method: String,
+        bearerToken: String,
+        body: Body
+    ) async throws -> Response {
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.timeoutInterval = 10
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw RequestError.badServerResponse
+        }
+        switch httpResponse.statusCode {
+        case 200:
+            return try decoder.decode(Response.self, from: data)
+        case 401:
+            throw RequestError.unauthorized
+        default:
+            throw RequestError.badServerResponse
+        }
+    }
+
+    private func registerPushToken(_ token: String) async {
+        guard let sessionToken = watchSessionToken, let baseURL = cloudBaseURL else {
+            return
+        }
+        do {
+            let response: DeviceRegistrationResponse = try await authorizedRequest(
+                url: baseURL.appendingPathComponent("v1/watch/devices"),
+                method: "POST",
+                bearerToken: sessionToken,
+                body: DeviceRegistrationRequest(
+                    watchInstallationId: watchInstallationID,
+                    pushToken: token
+                )
+            )
+            if response.registered {
+                notificationMessage = "Notifications are ready."
+            }
+        } catch RequestError.unauthorized {
+            notificationMessage = "Session expired. Pair again."
+        } catch {
+            notificationMessage = "Connected, but push registration failed."
+        }
+    }
+
+    private func unregisterPushDevice(
+        baseURL: URL,
+        sessionToken: String,
+        watchInstallationID: String
+    ) async {
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("v1/watch/devices"),
+            resolvingAgainstBaseURL: false
+        )
+        components?.queryItems = [
+            URLQueryItem(name: "watchInstallationId", value: watchInstallationID),
+        ]
+        guard let url = components?.url else {
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.timeoutInterval = 5
+        request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization")
+        _ = try? await URLSession.shared.data(for: request)
+    }
+
     private func fetchEvents(url: URL, bearerToken: String) async throws -> TaphapticEventsResponse {
         var request = URLRequest(url: url)
         request.timeoutInterval = 5
@@ -644,11 +811,11 @@ final class TaphapticModel: ObservableObject {
         case .completed:
             return "Agent completed a task."
         case .subagentCompleted:
-            return "Claude subagent completed."
+            return "A subagent completed."
         case .failed:
-            return "Claude failed."
+            return "The agent failed."
         case .attention:
-            return "Claude needs your attention."
+            return "The agent needs your attention."
         }
     }
 
@@ -767,12 +934,10 @@ final class TaphapticModel: ObservableObject {
 
     private var watchSessionToken: String? {
         get {
-            let value = (UserDefaults.standard.string(forKey: StorageKeys.watchSessionToken) ?? "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            return value.isEmpty ? nil : value
+            TaphapticKeychain.string(for: StorageKeys.watchSessionToken)
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: StorageKeys.watchSessionToken)
+            TaphapticKeychain.set(newValue, for: StorageKeys.watchSessionToken)
         }
     }
 
@@ -869,6 +1034,29 @@ final class TaphapticModel: ObservableObject {
         }
     }
 
+    private func configureNotifications() {
+        notifications.onPushTokenChanged = { [weak self] token in
+            Task { @MainActor in
+                await self?.registerPushToken(token)
+            }
+        }
+        notifications.onRemoteEvent = { [weak self] in
+            Task { @MainActor in
+                await self?.pollCloudStatusOnce()
+            }
+        }
+        notifications.configure()
+    }
+
+    private func migrateSessionTokenToKeychain() {
+        let defaults = UserDefaults.standard
+        let legacy = defaults.string(forKey: StorageKeys.watchSessionToken)
+        if TaphapticKeychain.string(for: StorageKeys.watchSessionToken) == nil {
+            TaphapticKeychain.set(legacy, for: StorageKeys.watchSessionToken)
+        }
+        defaults.removeObject(forKey: StorageKeys.watchSessionToken)
+    }
+
     private func startDiscovery() {
         serviceDiscovery.start()
     }
@@ -931,16 +1119,12 @@ final class TaphapticModel: ObservableObject {
         if !fromTaphapticEnvironment.isEmpty, let url = URL(string: fromTaphapticEnvironment) {
             return url
         }
-        return nil
-    }
-
-    private func fallbackPushToken() -> String {
-        let data = Data(watchInstallationID.utf8)
-        let digest = data.reduce(into: UInt64(1469598103934665603)) { partial, byte in
-            partial ^= UInt64(byte)
-            partial &*= 1099511628211
+        let fromInfoPlist = (Bundle.main.object(forInfoDictionaryKey: "TaphapticAPIBaseURL") as? String ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !fromInfoPlist.isEmpty, let url = URL(string: fromInfoPlist) {
+            return url
         }
-        return String(format: "%016llx%016llx", digest, digest ^ 0x9e3779b97f4a7c15)
+        return nil
     }
 
     private func normalizedCode(_ raw: String) -> String {

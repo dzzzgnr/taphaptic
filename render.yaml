@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: taphaptic-relay
+    runtime: docker
+    repo: https://github.com/dzzzgnr/taphaptic
+    branch: main
+    region: frankfurt
+    plan: starter
+    numInstances: 1
+    autoDeployTrigger: checksPass
+    healthCheckPath: /healthz
+    maxShutdownDelaySeconds: 30
+    disk:
+      name: taphaptic-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: TAPHAPTIC_DATA_DIR
+        value: /data
+      - key: TAPHAPTIC_APNS_KEY_ID
+        sync: false
+      - key: TAPHAPTIC_APNS_TEAM_ID
+        value: X53HKYK69N
+      - key: TAPHAPTIC_APNS_TOPIC
+        value: com.dzzzgnr.taphaptic.watch
+      - key: TAPHAPTIC_APNS_PRIVATE_KEY
+        sync: false
+      - key: TAPHAPTIC_APNS_ENVIRONMENT
+        value: production
+      - key: TAPHAPTIC_TRUST_PROXY_HEADERS
+        value: "false"

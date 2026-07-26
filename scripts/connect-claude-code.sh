@@ -39,10 +39,11 @@ case "$scope" in
     ;;
 esac
 
-/bin/sh "$repo_root/scripts/install-claude-hook.sh"
-
-if [ "$scope" = "project" ]; then
-  /bin/sh "$repo_root/scripts/patch-claude-settings.sh" --scope project --with-notifications >/dev/null
+ctl_path="$("$repo_root/scripts/ensure-binary.sh" taphapticctl)"
+if [ -n "${TAPHAPTIC_API_BASE_URL:-}" ]; then
+  "$ctl_path" install-consumer --provider claude --scope "$scope" --api-base-url "$TAPHAPTIC_API_BASE_URL"
+else
+  "$ctl_path" install-consumer --provider claude --scope "$scope"
 fi
 
 printf '%s\n' "Taphaptic onboarding is ready for Claude."

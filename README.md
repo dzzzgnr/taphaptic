@@ -1,135 +1,134 @@
 # Taphaptic
 
-Taphaptic sends Claude Code task status to Apple Watch using a local API running on your Mac.
+Taphaptic sends Claude Code and Codex lifecycle notifications to an independent
+Apple Watch app.
 
-## What this repo contains
+## Architecture
 
-- watchOS app (watch-only)
-- local Go API for pairing + event ingestion
-- Claude hook installer
+- Claude Code and Codex hooks run a small `taphapticctl` adapter on the user's Mac.
+- The adapter sends a minimal, provider-neutral event to the HTTPS relay.
+- The relay sends a standard alert directly to the watch-only app through APNs.
+- A local Bonjour/HTTP mode remains available for development and self-hosting.
+
+Prompts, transcripts, repository files, tool arguments, and generated answers
+are not sent by the built-in hooks.
 
 ## Requirements
 
-- macOS with Xcode (Apple Watch deployment enabled)
-- Go 1.22+
-- Physical Apple Watch paired to iPhone
+- macOS with Go 1.22+ for building the Mac adapter
+- Xcode 26+ with the watchOS 26 platform installed for App Store builds
+- Apple Watch running watchOS 11 or later
+- A relay URL for background notifications
 
-## Physical Watch Quickstart
+## Connect Claude Code, Codex, or both
 
-1. Clone and bootstrap in one command:
-
-```sh
-git clone https://github.com/dzzzgnr/taphaptic.git && cd taphaptic && ./scripts/bootstrap-watch.sh
-```
-
-2. In Xcode, select scheme `Taphaptic`, choose your physical Apple Watch destination, and press Run.
-
-3. Open Taphaptic on Apple Watch and enter the **4-digit** pairing code printed during bootstrap.
-
-Bootstrap builds `taphaptic-api` and `taphapticctl` from local source.
-
-## Daily Run
-
-1. Start the API:
+Build/start a local relay for development:
 
 ```sh
 ./scripts/start-api.sh
 ```
 
-This runs in the background and prints the API log path.
-
-2. Start a new Claude session so hooks load.
-
-3. Optional verification event:
+Install both adapters and print a watch pairing code:
 
 ```sh
-./scripts/test-claude-connection.sh stop
+./scripts/connect-agents.sh --provider all --scope user
 ```
 
-4. Stop the API when you are done (recommended):
+Provider-specific alternatives:
 
 ```sh
-./scripts/stop-api.sh
+./scripts/connect-claude-code.sh --scope user
+./scripts/connect-codex.sh --scope user
 ```
 
-## API Lifecycle Quick Reference
-
-Start:
+For a hosted relay:
 
 ```sh
-./scripts/start-api.sh
+./scripts/connect-agents.sh \
+  --provider all \
+  --scope user \
+  --api-base-url https://your-relay.example
 ```
 
-Stop:
+Codex requires review of new command hooks. Open `/hooks` in Codex and trust the
+Taphaptic entries after inspecting them. Taphaptic never bypasses hook trust.
+
+## Apple Watch setup
+
+1. Install and launch Taphaptic on Apple Watch.
+2. Enter the four-digit code printed by the Mac setup command.
+3. Allow notifications when prompted.
+4. Open Settings in Taphaptic and choose **Send test notification**.
+
+The hosted/APNs path works when Taphaptic is not open. The local HTTP fallback
+polls only while the watch app is active.
+
+## Relay configuration
+
+The container listens on `PORT` and persists state under `TAPHAPTIC_DATA_DIR`.
+Production APNs requires:
+
+```text
+TAPHAPTIC_APNS_KEY_ID
+TAPHAPTIC_APNS_TEAM_ID
+TAPHAPTIC_APNS_TOPIC
+TAPHAPTIC_APNS_PRIVATE_KEY_PATH
+# or TAPHAPTIC_APNS_PRIVATE_KEY with the PEM value from a secret manager
+TAPHAPTIC_APNS_ENVIRONMENT=production
+```
+
+Set `TAPHAPTIC_TRUST_PROXY_HEADERS=true` only when the service is behind a
+trusted reverse proxy that overwrites `X-Forwarded-For`.
+
+Never put the APNs private key in the repository, image, watch app, or logs.
+Mount it from the host's secret manager.
+
+`render.yaml` defines a one-instance Frankfurt deployment with an encrypted
+1 GB persistent disk, daily disk snapshots, HTTPS, health checks, and
+deploy-after-CI. Render prompts for the APNs key ID and private key during the
+first Blueprint sync; the values are not stored in Git.
+
+## API
+
+Public:
+
+- `GET /healthz`
+- `POST /v1/installations`
+- `POST /v1/claude/installations` (one-release compatibility alias)
+- `POST /v1/watch/pairings/claim`
+
+Authenticated:
+
+- `DELETE /v1/installations/current` (installation token)
+- `POST /v1/watch/pairings/code` (installation token)
+- `POST /v1/events` (producer token)
+- `GET /v1/events?since=<id>` (watch token)
+- `POST /v1/watch/devices` (watch token)
+- `DELETE /v1/watch/devices` (watch token)
+- `POST /v1/watch/test-notification` (watch token)
+
+## Verification
 
 ```sh
-./scripts/stop-api.sh
+go test ./... -count=1
+go test -race ./... -count=1
+./scripts/smoke-local-e2e.sh
+./scripts/test-shared-swift.sh
+./scripts/build-watch-app.sh
 ```
 
-Restart after Wi-Fi/network/IP changes:
+The watch build requires the watchOS platform component, not only the SDK
+stubs bundled with Xcode.
 
-```sh
-./scripts/stop-api.sh
-./scripts/start-api.sh
-```
-
-## Uninstall
-
-Run from anywhere (no local clone required):
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/dzzzgnr/taphaptic/main/scripts/uninstall.sh | sh -s -- --yes
-```
-
-If you already cloned this repo:
+## Uninstall and deletion
 
 ```sh
 ./scripts/uninstall.sh --yes
 ```
 
-## How pairing works
+Uninstall first asks the configured relay to delete the installation, device
+registrations, event records, and all scoped tokens. It then removes only
+Taphaptic's Claude Code/Codex hook entries and local runtime files.
 
-- Installer calls `POST /v1/claude/installations` to bootstrap installation identity.
-- Installer calls `POST /v1/watch/pairings/code` to generate a 4-digit code.
-- Watch app auto-discovers the local API on LAN (`_taphaptic._tcp`) and claims code via `POST /v1/watch/pairings/claim`.
-- Claude hooks send events with `POST /v1/events`.
-- Watch polls events with `GET /v1/events?since=<id>`.
-
-## Local API
-
-Public routes:
-
-- `GET /healthz`
-- `POST /v1/claude/installations`
-- `POST /v1/watch/pairings/claim`
-
-Authenticated routes:
-
-- `POST /v1/watch/pairings/code` (installation token)
-- `POST /v1/events` (claude session token)
-- `GET /v1/events?since=<id>` (watch session token)
-
-## CI checks (local equivalent)
-
-Run backend unit tests:
-
-```sh
-go test ./... -count=1
-```
-
-Run API smoke e2e (installation -> pairing -> claim -> event -> poll):
-
-```sh
-./scripts/smoke-local-e2e.sh
-```
-
-Run shared Swift regression tests:
-
-```sh
-./scripts/test-shared-swift.sh
-```
-
-## Notes
-
-- Watch and Mac must be on the same local network.
-- If discovery fails, keep the API running and retry pairing from watch.
+See the [privacy policy](docs/privacy-policy.md), [support guide](docs/support.md),
+and [release checklist](docs/app-store-release-checklist.md).

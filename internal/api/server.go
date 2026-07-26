@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"taphaptic/internal/channels"
+	"taphaptic/internal/devices"
 	"taphaptic/internal/events"
 	"taphaptic/internal/installations"
 	"taphaptic/internal/watchpairings"
@@ -23,6 +25,9 @@ const (
 	defaultRateLimitWindow    = time.Minute
 	defaultCreateInstallPerIP = 12
 	defaultClaimPairingPerIP  = 30
+	defaultEventsPerMinute    = 120
+	defaultTestPushPerMinute  = 5
+	defaultDevicesPerMinute   = 20
 	defaultWatchPollInterval  = 1
 )
 
@@ -32,6 +37,11 @@ type Config struct {
 	ChannelStore       *channels.Store
 	InstallationStore  *installations.Store
 	WatchPairingStore  *watchpairings.Store
+	DeviceStore        *devices.Store
+	PushSender         PushSender
+	APNSTopic          string
+	APNSEnvironment    string
+	TrustProxyHeaders  bool
 	PairingTTL         time.Duration
 	CreateInstallPerIP int
 	ClaimPairingPerIP  int
@@ -43,29 +53,48 @@ type Handler struct {
 	channels           *channels.Store
 	installations      *installations.Store
 	watchPairings      *watchpairings.Store
+	devices            *devices.Store
+	pushSender         PushSender
+	apnsTopic          string
+	apnsEnvironment    string
+	trustProxyHeaders  bool
 	pairingTTL         time.Duration
 	createInstallPerIP int
 	claimPairingPerIP  int
 	limiter            *requestLimiter
 }
 
+type PushSender interface {
+	Send(context.Context, devices.Device, events.Event) error
+}
+
+type invalidDeviceTokenError interface {
+	DeviceTokenInvalid() bool
+}
+
 type createEventRequest struct {
-	Type   string `json:"type"`
-	Source string `json:"source,omitempty"`
-	Title  string `json:"title,omitempty"`
-	Body   string `json:"body,omitempty"`
+	SchemaVersion int       `json:"schemaVersion,omitempty"`
+	Type          string    `json:"type"`
+	OccurredAt    time.Time `json:"occurredAt,omitempty"`
+	Source        string    `json:"source,omitempty"`
+	SourceEvent   string    `json:"sourceEvent,omitempty"`
+	DedupeKey     string    `json:"dedupeKey,omitempty"`
+	Title         string    `json:"title,omitempty"`
+	Body          string    `json:"body,omitempty"`
 }
 
 type createEventResponse struct {
-	Event events.Event `json:"event"`
+	Event        events.Event `json:"event"`
+	Deduplicated bool         `json:"deduplicated,omitempty"`
 }
 
 type createInstallationResponse struct {
-	InstallationToken string    `json:"installationToken"`
-	InstallationID    string    `json:"installationId"`
-	ChannelID         string    `json:"channelId,omitempty"`
-	ClaudeSessionToken string   `json:"claudeSessionToken,omitempty"`
-	CreatedAt         time.Time `json:"createdAt"`
+	InstallationToken  string    `json:"installationToken"`
+	InstallationID     string    `json:"installationId"`
+	ChannelID          string    `json:"channelId,omitempty"`
+	ProducerToken      string    `json:"producerToken,omitempty"`
+	ClaudeSessionToken string    `json:"claudeSessionToken,omitempty"`
+	CreatedAt          time.Time `json:"createdAt"`
 }
 
 type createWatchPairingCodeRequest struct {
@@ -90,6 +119,15 @@ type claimWatchPairingResponse struct {
 	PollIntervalSecond int    `json:"pollIntervalSeconds"`
 }
 
+type registerWatchDeviceRequest struct {
+	WatchInstallationID string `json:"watchInstallationId"`
+	PushToken           string `json:"pushToken"`
+}
+
+type testNotificationResponse struct {
+	Sent int `json:"sent"`
+}
+
 type eventsResponse struct {
 	Events []events.Event `json:"events"`
 }
@@ -99,7 +137,7 @@ type authScope string
 const (
 	authScopeUnknown      authScope = "unknown"
 	authScopeInstallation authScope = "installation"
-	authScopeClaude       authScope = "claude"
+	authScopeProducer     authScope = "producer"
 	authScopeWatch        authScope = "watch"
 )
 
@@ -133,12 +171,26 @@ func NewHandler(cfg Config) *Handler {
 		claimPairingPerIP = defaultClaimPairingPerIP
 	}
 
+	deviceStore := cfg.DeviceStore
+	if deviceStore == nil {
+		deviceStore = devices.NewStore()
+	}
+	apnsEnvironment := strings.ToLower(strings.TrimSpace(cfg.APNSEnvironment))
+	if apnsEnvironment == "" {
+		apnsEnvironment = "production"
+	}
+
 	return &Handler{
 		logger:             logger,
 		store:              cfg.Store,
 		channels:           cfg.ChannelStore,
 		installations:      cfg.InstallationStore,
 		watchPairings:      cfg.WatchPairingStore,
+		devices:            deviceStore,
+		pushSender:         cfg.PushSender,
+		apnsTopic:          strings.TrimSpace(cfg.APNSTopic),
+		apnsEnvironment:    apnsEnvironment,
+		trustProxyHeaders:  cfg.TrustProxyHeaders,
 		pairingTTL:         pairingTTL,
 		createInstallPerIP: createInstallPerIP,
 		claimPairingPerIP:  claimPairingPerIP,
@@ -149,9 +201,14 @@ func NewHandler(cfg Config) *Handler {
 func (h *Handler) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", h.handleHealthz)
+	mux.HandleFunc("POST /v1/installations", h.handleCreateInstallation)
 	mux.HandleFunc("POST /v1/claude/installations", h.handleCreateInstallation)
+	mux.HandleFunc("DELETE /v1/installations/current", h.handleDeleteInstallation)
 	mux.HandleFunc("POST /v1/watch/pairings/code", h.handleCreateWatchPairingCode)
 	mux.HandleFunc("POST /v1/watch/pairings/claim", h.handleClaimWatchPairingCode)
+	mux.HandleFunc("POST /v1/watch/devices", h.handleRegisterWatchDevice)
+	mux.HandleFunc("DELETE /v1/watch/devices", h.handleDeleteWatchDevice)
+	mux.HandleFunc("POST /v1/watch/test-notification", h.handleTestNotification)
 	mux.HandleFunc("POST /v1/events", h.handleCreateEvent)
 	mux.HandleFunc("GET /v1/events", h.handleEvents)
 	return h.withAuth(mux)
@@ -177,7 +234,7 @@ func (h *Handler) withAuth(next http.Handler) http.Handler {
 
 func (h *Handler) isPublicRoute(path string) bool {
 	switch path {
-	case "/healthz", "/v1/claude/installations", "/v1/watch/pairings/claim":
+	case "/healthz", "/v1/installations", "/v1/claude/installations", "/v1/watch/pairings/claim":
 		return true
 	default:
 		return false
@@ -199,9 +256,9 @@ func (h *Handler) resolveAuth(authorizationHeader string) authContext {
 		}
 	}
 
-	if channel, found := h.channels.GetByClaudeToken(token); found {
+	if channel, found := h.channels.GetByProducerToken(token); found {
 		return authContext{
-			Scope:          authScopeClaude,
+			Scope:          authScopeProducer,
 			Token:          token,
 			ChannelID:      channel.ID,
 			InstallationID: channel.InstallationID,
@@ -227,7 +284,7 @@ func (h *Handler) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 func (h *Handler) handleCreateInstallation(w http.ResponseWriter, r *http.Request) {
 	auth := h.resolveAuth(r.Header.Get("Authorization"))
 	if auth.Scope != authScopeInstallation {
-		ip := clientIP(r)
+		ip := h.clientIP(r)
 		if !h.limiter.Allow("install:"+ip, h.createInstallPerIP, defaultRateLimitWindow) {
 			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 			return
@@ -255,12 +312,51 @@ func (h *Handler) handleCreateInstallation(w http.ResponseWriter, r *http.Reques
 	}
 
 	h.writeJSON(w, createInstallationResponse{
-		InstallationToken: installation.Token,
-		InstallationID:    installation.ID,
-		ChannelID:         channel.ID,
-		ClaudeSessionToken: channel.ClaudeSessionToken,
-		CreatedAt:         installation.CreatedAt,
+		InstallationToken:  installation.Token,
+		InstallationID:     installation.ID,
+		ChannelID:          channel.ID,
+		ProducerToken:      channel.ProducerToken,
+		ClaudeSessionToken: channel.ProducerToken,
+		CreatedAt:          installation.CreatedAt,
 	})
+}
+
+func (h *Handler) handleDeleteInstallation(w http.ResponseWriter, r *http.Request) {
+	auth, ok := authFromContext(r.Context())
+	if !ok || auth.Scope != authScopeInstallation {
+		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
+	}
+
+	channel, hasChannel := h.channels.GetByInstallation(auth.InstallationID)
+	if err := h.watchPairings.RemoveForInstallation(auth.InstallationID); err != nil {
+		h.logger.Printf("api.installation_delete_pairings_failed installation=%s error=%v", auth.InstallationID, err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	if err := h.devices.RemoveForInstallation(auth.InstallationID); err != nil {
+		h.logger.Printf("api.installation_delete_devices_failed installation=%s error=%v", auth.InstallationID, err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	if hasChannel {
+		if err := h.store.RemoveForChannel(channel.ID); err != nil {
+			h.logger.Printf("api.installation_delete_events_failed installation=%s error=%v", auth.InstallationID, err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+	}
+	if err := h.channels.RemoveByInstallation(auth.InstallationID); err != nil {
+		h.logger.Printf("api.installation_delete_channel_failed installation=%s error=%v", auth.InstallationID, err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	if err := h.installations.RemoveByID(auth.InstallationID); err != nil {
+		h.logger.Printf("api.installation_delete_identity_failed installation=%s error=%v", auth.InstallationID, err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) handleCreateWatchPairingCode(w http.ResponseWriter, r *http.Request) {
@@ -303,7 +399,7 @@ func (h *Handler) handleCreateWatchPairingCode(w http.ResponseWriter, r *http.Re
 }
 
 func (h *Handler) handleClaimWatchPairingCode(w http.ResponseWriter, r *http.Request) {
-	ip := clientIP(r)
+	ip := h.clientIP(r)
 	if !h.limiter.Allow("claim:"+ip, h.claimPairingPerIP, defaultRateLimitWindow) {
 		http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 		return
@@ -345,6 +441,17 @@ func (h *Handler) handleClaimWatchPairingCode(w http.ResponseWriter, r *http.Req
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+	if strings.TrimSpace(payload.PushToken) != "" && h.apnsTopic != "" {
+		if _, deviceErr := h.devices.Upsert(devices.Device{
+			InstallationID:      claimed.InstallationID,
+			WatchInstallationID: payload.WatchInstallationID,
+			Token:               payload.PushToken,
+			Environment:         h.apnsEnvironment,
+			Topic:               h.apnsTopic,
+		}); deviceErr != nil {
+			h.logger.Printf("api.watch_device_registration_ignored installation=%s error=%v", claimed.InstallationID, deviceErr)
+		}
+	}
 
 	h.writeJSON(w, claimWatchPairingResponse{
 		WatchSessionToken:  channel.WatchSessionToken,
@@ -355,8 +462,12 @@ func (h *Handler) handleClaimWatchPairingCode(w http.ResponseWriter, r *http.Req
 
 func (h *Handler) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 	auth, ok := authFromContext(r.Context())
-	if !ok || auth.Scope != authScopeClaude {
+	if !ok || auth.Scope != authScopeProducer {
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
+	}
+	if !h.limiter.Allow("event:"+auth.InstallationID, defaultEventsPerMinute, defaultRateLimitWindow) {
+		http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 		return
 	}
 
@@ -372,12 +483,16 @@ func (h *Handler) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	created, err := h.store.AppendInput(events.AppendInput{
-		ChannelID: auth.ChannelID,
-		Type:      eventType,
-		Source:    payload.Source,
-		Title:     payload.Title,
-		Body:      payload.Body,
+	created, appended, err := h.store.AppendUnique(events.AppendInput{
+		SchemaVersion: payload.SchemaVersion,
+		ChannelID:     auth.ChannelID,
+		Type:          eventType,
+		OccurredAt:    payload.OccurredAt,
+		Source:        payload.Source,
+		SourceEvent:   payload.SourceEvent,
+		DedupeKey:     payload.DedupeKey,
+		Title:         payload.Title,
+		Body:          payload.Body,
 	})
 	if err != nil {
 		h.logger.Printf("api.event_create_failed channel=%s error=%v", auth.ChannelID, err)
@@ -385,7 +500,123 @@ func (h *Handler) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.writeJSON(w, createEventResponse{Event: created})
+	h.writeJSON(w, createEventResponse{
+		Event:        created,
+		Deduplicated: !appended,
+	})
+	if appended {
+		h.deliverEvent(r.Context(), auth.InstallationID, created)
+	}
+}
+
+func (h *Handler) handleRegisterWatchDevice(w http.ResponseWriter, r *http.Request) {
+	auth, ok := authFromContext(r.Context())
+	if !ok || auth.Scope != authScopeWatch {
+		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
+	}
+	if !h.limiter.Allow("device:"+auth.InstallationID, defaultDevicesPerMinute, defaultRateLimitWindow) {
+		http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
+		return
+	}
+	if h.apnsTopic == "" {
+		http.Error(w, "push notifications are not configured", http.StatusServiceUnavailable)
+		return
+	}
+	var payload registerWatchDeviceRequest
+	if err := decodeJSONBody(r, &payload); err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+	device, err := h.devices.Upsert(devices.Device{
+		InstallationID:      auth.InstallationID,
+		WatchInstallationID: payload.WatchInstallationID,
+		Token:               payload.PushToken,
+		Environment:         h.apnsEnvironment,
+		Topic:               h.apnsTopic,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	h.writeJSON(w, map[string]any{
+		"watchInstallationId": device.WatchInstallationID,
+		"registered":          true,
+	})
+}
+
+func (h *Handler) handleDeleteWatchDevice(w http.ResponseWriter, r *http.Request) {
+	auth, ok := authFromContext(r.Context())
+	if !ok || auth.Scope != authScopeWatch {
+		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
+	}
+	watchInstallationID := strings.TrimSpace(r.URL.Query().Get("watchInstallationId"))
+	if watchInstallationID == "" {
+		http.Error(w, "watchInstallationId is required", http.StatusBadRequest)
+		return
+	}
+	err := h.devices.Remove(auth.InstallationID, watchInstallationID)
+	if errors.Is(err, devices.ErrNotFound) {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) handleTestNotification(w http.ResponseWriter, r *http.Request) {
+	auth, ok := authFromContext(r.Context())
+	if !ok || auth.Scope != authScopeWatch {
+		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
+	}
+	if !h.limiter.Allow("test-push:"+auth.InstallationID, defaultTestPushPerMinute, defaultRateLimitWindow) {
+		http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
+		return
+	}
+	event := events.Event{
+		ID:            time.Now().UTC().UnixMilli(),
+		SchemaVersion: 1,
+		Type:          events.TypeCompleted,
+		CreatedAt:     time.Now().UTC(),
+		OccurredAt:    time.Now().UTC(),
+		Source:        "taphaptic",
+		SourceEvent:   "TestNotification",
+		Title:         "Taphaptic is connected",
+		Body:          "Test notification delivered",
+	}
+	sent := h.deliverEvent(r.Context(), auth.InstallationID, event)
+	h.writeJSON(w, testNotificationResponse{Sent: sent})
+}
+
+func (h *Handler) deliverEvent(ctx context.Context, installationID string, event events.Event) int {
+	if h.pushSender == nil {
+		return 0
+	}
+	sent := 0
+	for _, device := range h.devices.ForInstallation(installationID) {
+		if err := h.pushSender.Send(ctx, device, event); err != nil {
+			var tokenErr invalidDeviceTokenError
+			if errors.As(err, &tokenErr) && tokenErr.DeviceTokenInvalid() {
+				h.devices.RemoveByToken(device.Token)
+			}
+			h.logger.Printf(
+				"api.push_failed installation=%s watch=%s source=%s type=%s error=%v",
+				installationID,
+				device.WatchInstallationID,
+				event.Source,
+				event.Type,
+				err,
+			)
+			continue
+		}
+		sent++
+	}
+	return sent
 }
 
 func (h *Handler) handleEvents(w http.ResponseWriter, r *http.Request) {
@@ -416,9 +647,18 @@ func (h *Handler) writeJSON(w http.ResponseWriter, value any) {
 }
 
 func decodeJSONBody(r *http.Request, dst any) error {
-	decoder := json.NewDecoder(r.Body)
+	decoder := json.NewDecoder(io.LimitReader(r.Body, 1<<20))
 	decoder.DisallowUnknownFields()
-	return decoder.Decode(dst)
+	if err := decoder.Decode(dst); err != nil {
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return errors.New("request body must contain one JSON value")
+		}
+		return err
+	}
+	return nil
 }
 
 func authFromContext(ctx context.Context) (authContext, bool) {
@@ -451,13 +691,16 @@ func parseSince(r *http.Request) (int64, error) {
 	return strconv.ParseInt(raw, 10, 64)
 }
 
-func clientIP(r *http.Request) string {
-	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
-		parts := strings.Split(forwarded, ",")
-		if len(parts) > 0 {
-			first := strings.TrimSpace(parts[0])
-			if first != "" {
-				return first
+func (h *Handler) clientIP(r *http.Request) string {
+	if h.trustProxyHeaders {
+		forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
+		if forwarded != "" {
+			parts := strings.Split(forwarded, ",")
+			if len(parts) > 0 {
+				first := strings.TrimSpace(parts[0])
+				if first != "" {
+					return first
+				}
 			}
 		}
 	}

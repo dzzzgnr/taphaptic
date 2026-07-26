@@ -8,7 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		0D1A2B3C4D5E6F7089AB1234 /* taphaptic.icon in Resources */ = {isa = PBXBuildFile; fileRef = 0D1A2B3C4D5E6F7089AB5678 /* taphaptic.icon */; };
+		0D1A2B3C4D5E6F7089AB2234 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 0D1A2B3C4D5E6F7089AB6678 /* PrivacyInfo.xcprivacy */; };
 		0EFC4E7EBF9CEA224E34F59B /* TaphapticSharedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66CED5F91B5B592C2C97F1B2 /* TaphapticSharedModels.swift */; };
+		104B56167D5A412E8AB70704 /* TaphapticKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 204B56167D5A412E8AB70704 /* TaphapticKeychain.swift */; };
 		238546A4E03C24356FC9943D /* TaphapticModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDDBBF7D9469AA4346EB32FE /* TaphapticModel.swift */; };
 		2A7820C15349200EB02E5803 /* TaphapticServiceDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF20D4F2ABA944087F2BE99E /* TaphapticServiceDiscovery.swift */; };
 		3E47BEF6E1539658FA33975F /* TaphapticCursorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A64DC3D6CD90413AFEE58E0 /* TaphapticCursorStore.swift */; };
@@ -20,11 +22,16 @@
 		BC0EFB10A6903FAF7888B26C /* TaphapticCursorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A64DC3D6CD90413AFEE58E0 /* TaphapticCursorStore.swift */; };
 		CA8DFF985C1B71C8ADB8AC5B /* TaphapticCursorStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F07713291BE7658824C3A820 /* TaphapticCursorStoreTests.swift */; };
 		D69B958F5D94D2C6AF355E36 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 988EA82B7250B4D755851D76 /* ContentView.swift */; };
+		E04B56167D5A412E8AB70704 /* TaphapticNotificationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F04B56167D5A412E8AB70704 /* TaphapticNotificationCoordinator.swift */; };
 		F36E306919876DCF4459433D /* BlurTextTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53FD74ECCFCD3F657C4C1FE0 /* BlurTextTransition.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0D1A2B3C4D5E6F7089AB5678 /* taphaptic.icon */ = {isa = PBXFileReference; lastKnownFileType = folder; path = taphaptic.icon; sourceTree = "<group>"; };
+		0D1A2B3C4D5E6F7089AB6678 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		0D1A2B3C4D5E6F7089AB7678 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		204B56167D5A412E8AB70704 /* TaphapticKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaphapticKeychain.swift; sourceTree = "<group>"; };
+		304B56167D5A412E8AB70704 /* Taphaptic.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Taphaptic.entitlements; sourceTree = "<group>"; };
 		53FD74ECCFCD3F657C4C1FE0 /* BlurTextTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlurTextTransition.swift; sourceTree = "<group>"; };
 		66CED5F91B5B592C2C97F1B2 /* TaphapticSharedModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaphapticSharedModels.swift; sourceTree = "<group>"; };
 		6CE8BE767D0EFDC05738DF3C /* Taphaptic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Taphaptic.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -36,6 +43,7 @@
 		BDDBBF7D9469AA4346EB32FE /* TaphapticModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaphapticModel.swift; sourceTree = "<group>"; };
 		BFD3E229C0241686AC5FDF18 /* TaphapticSharedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TaphapticSharedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DF20D4F2ABA944087F2BE99E /* TaphapticServiceDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaphapticServiceDiscovery.swift; sourceTree = "<group>"; };
+		F04B56167D5A412E8AB70704 /* TaphapticNotificationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaphapticNotificationCoordinator.swift; sourceTree = "<group>"; };
 		F07713291BE7658824C3A820 /* TaphapticCursorStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaphapticCursorStoreTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -61,10 +69,15 @@
 			isa = PBXGroup;
 			children = (
 				0D1A2B3C4D5E6F7089AB5678 /* taphaptic.icon */,
+				0D1A2B3C4D5E6F7089AB7678 /* Info.plist */,
+				0D1A2B3C4D5E6F7089AB6678 /* PrivacyInfo.xcprivacy */,
 				53FD74ECCFCD3F657C4C1FE0 /* BlurTextTransition.swift */,
 				988EA82B7250B4D755851D76 /* ContentView.swift */,
+				304B56167D5A412E8AB70704 /* Taphaptic.entitlements */,
 				BDA1C59A34190840D2584013 /* TaphapticApp.swift */,
+				204B56167D5A412E8AB70704 /* TaphapticKeychain.swift */,
 				BDDBBF7D9469AA4346EB32FE /* TaphapticModel.swift */,
+				F04B56167D5A412E8AB70704 /* TaphapticNotificationCoordinator.swift */,
 				DF20D4F2ABA944087F2BE99E /* TaphapticServiceDiscovery.swift */,
 			);
 			path = "watch-app";
@@ -144,7 +157,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 2650;
 				TargetAttributes = {
 					69D4E33EEF56E3DEAD2A682E = {
 						ProvisioningStyle = Automatic;
@@ -177,6 +190,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0D1A2B3C4D5E6F7089AB1234 /* taphaptic.icon in Resources */,
+				0D1A2B3C4D5E6F7089AB2234 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -190,8 +204,10 @@
 				F36E306919876DCF4459433D /* BlurTextTransition.swift in Sources */,
 				D69B958F5D94D2C6AF355E36 /* ContentView.swift in Sources */,
 				AF551AA7FEE6B3F91E928228 /* TaphapticApp.swift in Sources */,
+				104B56167D5A412E8AB70704 /* TaphapticKeychain.swift in Sources */,
 				3E47BEF6E1539658FA33975F /* TaphapticCursorStore.swift in Sources */,
 				238546A4E03C24356FC9943D /* TaphapticModel.swift in Sources */,
+				E04B56167D5A412E8AB70704 /* TaphapticNotificationCoordinator.swift in Sources */,
 				2A7820C15349200EB02E5803 /* TaphapticServiceDiscovery.swift in Sources */,
 				5720CD4B075F77C323716DE5 /* TaphapticSharedModels.swift in Sources */,
 				A9A84CF268817B1CD928505F /* TaphapticWatchEventPolicy.swift in Sources */,
@@ -308,21 +324,20 @@
 		B73C8562208F235C499CDDD9 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APS_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = taphaptic;
+				CODE_SIGN_ENTITLEMENTS = watch-app/Taphaptic.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Taphaptic;
-				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
-				INFOPLIST_KEY_NSBonjourServices = (
-					_taphaptic._tcp,
-				);
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Taphaptic discovers your Mac on the local network for pairing.";
-				INFOPLIST_KEY_WKApplication = YES;
-				INFOPLIST_KEY_WKWatchOnly = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = local.taphaptic.watch;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = X53HKYK69N;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = watch-app/Info.plist;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dzzzgnr.taphaptic.watch;
 				PRODUCT_NAME = Taphaptic;
 				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
+				SKIP_INSTALL = NO;
+				TAPHAPTIC_API_BASE_URL = "";
 				TARGETED_DEVICE_FAMILY = 4;
 				WATCHOS_DEPLOYMENT_TARGET = 11.0;
 			};
@@ -331,21 +346,20 @@
 		E0E48C35FC9B187C812CFDC0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APS_ENVIRONMENT = development;
 				ASSETCATALOG_COMPILER_APPICON_NAME = taphaptic;
+				CODE_SIGN_ENTITLEMENTS = watch-app/Taphaptic.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Taphaptic;
-				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
-				INFOPLIST_KEY_NSBonjourServices = (
-					_taphaptic._tcp,
-				);
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Taphaptic discovers your Mac on the local network for pairing.";
-				INFOPLIST_KEY_WKApplication = YES;
-				INFOPLIST_KEY_WKWatchOnly = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = local.taphaptic.watch;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = X53HKYK69N;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = watch-app/Info.plist;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dzzzgnr.taphaptic.watch;
 				PRODUCT_NAME = Taphaptic;
 				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
+				SKIP_INSTALL = NO;
+				TAPHAPTIC_API_BASE_URL = "";
 				TARGETED_DEVICE_FAMILY = 4;
 				WATCHOS_DEPLOYMENT_TARGET = 11.0;
 			};

@@ -23,16 +23,28 @@ const (
 )
 
 type eventPayload struct {
-	Type   string `json:"type"`
-	Source string `json:"source,omitempty"`
-	Title  string `json:"title,omitempty"`
-	Body   string `json:"body,omitempty"`
+	SchemaVersion int       `json:"schemaVersion,omitempty"`
+	Type          string    `json:"type"`
+	OccurredAt    time.Time `json:"occurredAt,omitempty"`
+	Source        string    `json:"source,omitempty"`
+	SourceEvent   string    `json:"sourceEvent,omitempty"`
+	DedupeKey     string    `json:"dedupeKey,omitempty"`
+	Title         string    `json:"title,omitempty"`
+	Body          string    `json:"body,omitempty"`
 }
 
 type installationResponse struct {
-	InstallationToken string `json:"installationToken"`
-	InstallationID    string `json:"installationId"`
+	InstallationToken  string `json:"installationToken"`
+	InstallationID     string `json:"installationId"`
+	ProducerToken      string `json:"producerToken"`
 	ClaudeSessionToken string `json:"claudeSessionToken"`
+}
+
+func (r installationResponse) EventProducerToken() string {
+	if token := strings.TrimSpace(r.ProducerToken); token != "" {
+		return token
+	}
+	return strings.TrimSpace(r.ClaudeSessionToken)
 }
 
 type pairingCodeResponse struct {
@@ -48,16 +60,18 @@ type eventsResponse struct {
 }
 
 type appPaths struct {
-	HomeDir              string
-	InstallRoot          string
-	InstallBinDir        string
-	InstalledHookPath    string
-	InstalledCtlPath     string
-	ClaudeRoot           string
-	APIBaseURLFile       string
+	HomeDir               string
+	InstallRoot           string
+	InstallBinDir         string
+	InstalledHookPath     string
+	InstalledCtlPath      string
+	ClaudeRoot            string
+	CodexRoot             string
+	APIBaseURLFile        string
 	InstallationTokenFile string
-	InstallationIDFile   string
-	ClaudeTokenFile      string
+	InstallationIDFile    string
+	ProducerTokenFile     string
+	LegacyClaudeTokenFile string
 }
 
 func main() {
@@ -69,14 +83,20 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: taphapticctl <install-consumer|patch-settings|emit|health|smoke-local-e2e>")
+		return fmt.Errorf("usage: taphapticctl <install-consumer|delete-installation|patch-settings|patch-codex-hooks|remove-hooks|emit|health|smoke-local-e2e>")
 	}
 
 	switch args[0] {
 	case "install-consumer":
 		return runInstallConsumer(args[1:])
+	case "delete-installation":
+		return runDeleteInstallation(args[1:])
 	case "patch-settings":
 		return runPatchSettings(args[1:])
+	case "patch-codex-hooks":
+		return runPatchCodexHooks(args[1:])
+	case "remove-hooks":
+		return runRemoveHooks(args[1:])
 	case "emit":
 		return runEmit(args[1:])
 	case "health":
@@ -88,15 +108,65 @@ func run(args []string) error {
 	}
 }
 
+func runDeleteInstallation(args []string) error {
+	fs := flag.NewFlagSet("delete-installation", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	apiBaseURL := fs.String("api-base-url", "", "API base URL")
+	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
+		return fmt.Errorf("usage: taphapticctl delete-installation [--api-base-url <url>]")
+	}
+	paths, err := resolveAppPaths()
+	if err != nil {
+		return err
+	}
+	baseURLRaw := strings.TrimSpace(*apiBaseURL)
+	if baseURLRaw == "" {
+		baseURLRaw = readTrimmedFile(paths.APIBaseURLFile)
+	}
+	baseURL, err := normalizedBaseURL(baseURLRaw)
+	if err != nil {
+		return err
+	}
+	installationToken := readTrimmedFile(paths.InstallationTokenFile)
+	if installationToken == "" {
+		return nil
+	}
+	client := &http.Client{Timeout: 5 * time.Second}
+	status, body, err := deleteRequest(
+		client,
+		joinURL(baseURL, "/v1/installations/current"),
+		installationToken,
+	)
+	if err != nil {
+		return fmt.Errorf("delete installation: %w", err)
+	}
+	if status != http.StatusNoContent && status != http.StatusUnauthorized {
+		return fmt.Errorf("delete installation: status=%d body=%s", status, strings.TrimSpace(string(body)))
+	}
+	for _, path := range []string{
+		paths.InstallationTokenFile,
+		paths.InstallationIDFile,
+		paths.ProducerTokenFile,
+		paths.LegacyClaudeTokenFile,
+	} {
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	return nil
+}
+
 func runInstallConsumer(args []string) error {
 	fs := flag.NewFlagSet("install-consumer", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	apiBaseURL := fs.String("api-base-url", envOrDefault("TAPHAPTIC_API_BASE_URL", defaultAPIBaseURL), "API base URL")
+	providersRaw := fs.String("provider", "all", "event provider: claude|codex|all")
+	scope := fs.String("scope", "user", "settings scope: user|project")
 	if err := fs.Parse(args); err != nil {
-		return fmt.Errorf("usage: taphapticctl install-consumer [--api-base-url <url>]")
+		return fmt.Errorf("usage: taphapticctl install-consumer [--api-base-url <url>] [--provider claude|codex|all] [--scope user|project]")
 	}
 	if fs.NArg() != 0 {
-		return fmt.Errorf("usage: taphapticctl install-consumer [--api-base-url <url>]")
+		return fmt.Errorf("usage: taphapticctl install-consumer [--api-base-url <url>] [--provider claude|codex|all] [--scope user|project]")
 	}
 
 	if os.Getenv("SUDO_COMMAND") != "" || os.Geteuid() == 0 {
@@ -110,6 +180,17 @@ func runInstallConsumer(args []string) error {
 
 	baseURL, err := normalizedBaseURL(*apiBaseURL)
 	if err != nil {
+		return err
+	}
+	providers, err := parseProviders(*providersRaw)
+	if err != nil {
+		return err
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("resolve working directory: %w", err)
+	}
+	if _, err := resolveProviderConfigPath("claude", *scope, cwd, paths.HomeDir); err != nil {
 		return err
 	}
 
@@ -129,12 +210,29 @@ func runInstallConsumer(args []string) error {
 		return err
 	}
 
-	settingsPath := filepath.Join(paths.ClaudeRoot, "settings.json")
-	if err := backupFileIfExists(settingsPath); err != nil {
-		return err
+	if providers.Claude {
+		settingsPath, pathErr := resolveProviderConfigPath("claude", *scope, cwd, paths.HomeDir)
+		if pathErr != nil {
+			return pathErr
+		}
+		if err := backupFileIfExists(settingsPath); err != nil {
+			return err
+		}
+		if err := patchSettingsAtPath(settingsPath, true); err != nil {
+			return err
+		}
 	}
-	if err := patchSettingsAtPath(settingsPath, true); err != nil {
-		return err
+	if providers.Codex {
+		hooksPath, pathErr := resolveProviderConfigPath("codex", *scope, cwd, paths.HomeDir)
+		if pathErr != nil {
+			return pathErr
+		}
+		if err := backupFileIfExists(hooksPath); err != nil {
+			return err
+		}
+		if err := patchCodexHooksAtPath(hooksPath); err != nil {
+			return err
+		}
 	}
 
 	client := &http.Client{Timeout: 4 * time.Second}
@@ -150,7 +248,11 @@ func runInstallConsumer(args []string) error {
 	if err := writeFileAtomic(paths.InstallationIDFile, []byte(installResp.InstallationID), 0o600); err != nil {
 		return err
 	}
-	if err := writeFileAtomic(paths.ClaudeTokenFile, []byte(installResp.ClaudeSessionToken), 0o600); err != nil {
+	producerToken := installResp.EventProducerToken()
+	if producerToken == "" {
+		return errors.New("installation response is missing producerToken")
+	}
+	if err := writeFileAtomic(paths.ProducerTokenFile, []byte(producerToken), 0o600); err != nil {
 		return err
 	}
 
@@ -161,6 +263,9 @@ func runInstallConsumer(args []string) error {
 
 	fmt.Println()
 	printPairingCode(code)
+	if providers.Codex {
+		fmt.Println("Codex hooks were installed. Review and trust the Taphaptic hooks in Codex before use.")
+	}
 	fmt.Println()
 	return nil
 }
@@ -198,18 +303,113 @@ func runPatchSettings(args []string) error {
 	return nil
 }
 
+type providerSelection struct {
+	Claude bool
+	Codex  bool
+}
+
+func parseProviders(raw string) (providerSelection, error) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "claude", "claude-code":
+		return providerSelection{Claude: true}, nil
+	case "codex":
+		return providerSelection{Codex: true}, nil
+	case "all", "both":
+		return providerSelection{Claude: true, Codex: true}, nil
+	default:
+		return providerSelection{}, fmt.Errorf("unsupported provider %q (use claude, codex, or all)", raw)
+	}
+}
+
+func runPatchCodexHooks(args []string) error {
+	fs := flag.NewFlagSet("patch-codex-hooks", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	scope := fs.String("scope", "user", "settings scope: user|project")
+	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
+		return fmt.Errorf("usage: taphapticctl patch-codex-hooks [--scope user|project]")
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("resolve home directory: %w", err)
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("resolve working directory: %w", err)
+	}
+	hooksPath, err := resolveProviderConfigPath("codex", *scope, cwd, homeDir)
+	if err != nil {
+		return err
+	}
+	if err := backupFileIfExists(hooksPath); err != nil {
+		return err
+	}
+	if err := patchCodexHooksAtPath(hooksPath); err != nil {
+		return err
+	}
+
+	fmt.Printf("Updated Codex hooks at %s\n", hooksPath)
+	fmt.Println("Review and trust the Taphaptic hooks in Codex before use.")
+	return nil
+}
+
+func runRemoveHooks(args []string) error {
+	fs := flag.NewFlagSet("remove-hooks", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	providersRaw := fs.String("provider", "all", "event provider: claude|codex|all")
+	scope := fs.String("scope", "user", "settings scope: user|project")
+	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
+		return fmt.Errorf("usage: taphapticctl remove-hooks [--provider claude|codex|all] [--scope user|project]")
+	}
+
+	providers, err := parseProviders(*providersRaw)
+	if err != nil {
+		return err
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("resolve home directory: %w", err)
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("resolve working directory: %w", err)
+	}
+
+	if providers.Claude {
+		path, pathErr := resolveProviderConfigPath("claude", *scope, cwd, homeDir)
+		if pathErr != nil {
+			return pathErr
+		}
+		if err := removeTaphapticHooksAtPath(path); err != nil {
+			return err
+		}
+	}
+	if providers.Codex {
+		path, pathErr := resolveProviderConfigPath("codex", *scope, cwd, homeDir)
+		if pathErr != nil {
+			return pathErr
+		}
+		if err := removeTaphapticHooksAtPath(path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func runEmit(args []string) error {
 	fs := flag.NewFlagSet("emit", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	action := fs.String("action", "", "hook action")
+	source := fs.String("source", "claude-code", "event source: claude-code|codex")
 	if err := fs.Parse(args); err != nil {
-		return fmt.Errorf("usage: taphapticctl emit --action <stop|subagent_stop|permission_prompt|idle_prompt|completed|subagent_completed|failed|attention>")
+		return fmt.Errorf("usage: taphapticctl emit --source <claude-code|codex> --action <stop|subagent_stop|permission_request|permission_prompt|idle_prompt|completed|subagent_completed|failed|attention>")
 	}
 	if fs.NArg() != 0 || strings.TrimSpace(*action) == "" {
-		return fmt.Errorf("usage: taphapticctl emit --action <stop|subagent_stop|permission_prompt|idle_prompt|completed|subagent_completed|failed|attention>")
+		return fmt.Errorf("usage: taphapticctl emit --source <claude-code|codex> --action <stop|subagent_stop|permission_request|permission_prompt|idle_prompt|completed|subagent_completed|failed|attention>")
 	}
 
-	payload, err := eventForAction(*action)
+	hookFields := readHookFields(os.Stdin)
+	payload, err := eventForSourceAction(*source, *action, hookFields)
 	if err != nil {
 		return err
 	}
@@ -232,29 +432,35 @@ func runEmit(args []string) error {
 		return nil
 	}
 
-	claudeToken := strings.TrimSpace(os.Getenv("TAPHAPTIC_CLAUDE_SESSION_TOKEN"))
-	if claudeToken == "" {
-		claudeToken = readTrimmedFile(paths.ClaudeTokenFile)
+	producerToken := strings.TrimSpace(os.Getenv("TAPHAPTIC_PRODUCER_TOKEN"))
+	if producerToken == "" {
+		producerToken = strings.TrimSpace(os.Getenv("TAPHAPTIC_CLAUDE_SESSION_TOKEN"))
+	}
+	if producerToken == "" {
+		producerToken = readTrimmedFile(paths.ProducerTokenFile)
+	}
+	if producerToken == "" {
+		producerToken = readTrimmedFile(paths.LegacyClaudeTokenFile)
 	}
 
 	client := &http.Client{Timeout: 3 * time.Second}
-	if claudeToken == "" {
+	if producerToken == "" {
 		installationToken := readTrimmedFile(paths.InstallationTokenFile)
 		if installationToken != "" {
 			if installResp, resolveErr := createInstallation(client, baseURL, installationToken); resolveErr == nil {
-				claudeToken = strings.TrimSpace(installResp.ClaudeSessionToken)
-				if claudeToken != "" {
-					_ = writeFileAtomic(paths.ClaudeTokenFile, []byte(claudeToken), 0o600)
+				producerToken = installResp.EventProducerToken()
+				if producerToken != "" {
+					_ = writeFileAtomic(paths.ProducerTokenFile, []byte(producerToken), 0o600)
 				}
 			}
 		}
 	}
 
-	if claudeToken == "" {
+	if producerToken == "" {
 		return nil
 	}
 
-	_ = postEvent(client, baseURL, claudeToken, payload)
+	_ = postEvent(client, baseURL, producerToken, payload)
 	return nil
 }
 
@@ -421,18 +627,32 @@ func createOrRestoreInstallation(client *http.Client, baseURL, existingToken str
 }
 
 func createInstallation(client *http.Client, baseURL, bearer string) (installationResponse, error) {
-	var resp installationResponse
-	status, body, err := postJSON(client, joinURL(baseURL, "/v1/claude/installations"), bearer, map[string]any{}, &resp)
+	resp, status, body, err := createInstallationAt(client, joinURL(baseURL, "/v1/installations"), bearer)
 	if err != nil {
 		return installationResponse{}, err
+	}
+	if status == http.StatusNotFound {
+		resp, status, body, err = createInstallationAt(client, joinURL(baseURL, "/v1/claude/installations"), bearer)
+		if err != nil {
+			return installationResponse{}, err
+		}
 	}
 	if status != http.StatusOK {
 		return installationResponse{}, fmt.Errorf("status=%d body=%s", status, strings.TrimSpace(string(body)))
 	}
-	if strings.TrimSpace(resp.InstallationToken) == "" || strings.TrimSpace(resp.InstallationID) == "" || strings.TrimSpace(resp.ClaudeSessionToken) == "" {
+	if strings.TrimSpace(resp.InstallationToken) == "" || strings.TrimSpace(resp.InstallationID) == "" || resp.EventProducerToken() == "" {
 		return installationResponse{}, errors.New("missing installation fields")
 	}
 	return resp, nil
+}
+
+func createInstallationAt(client *http.Client, requestURL, bearer string) (installationResponse, int, []byte, error) {
+	var resp installationResponse
+	status, body, err := postJSON(client, requestURL, bearer, map[string]any{}, &resp)
+	if err != nil {
+		return installationResponse{}, status, body, err
+	}
+	return resp, status, body, nil
 }
 
 func createPairingCode(client *http.Client, baseURL, installationToken string) (string, error) {
@@ -454,7 +674,7 @@ func createPairingCode(client *http.Client, baseURL, installationToken string) (
 func claimPairingCode(client *http.Client, baseURL, code, watchInstallationID string) (claimPairingResponse, error) {
 	var resp claimPairingResponse
 	payload := map[string]any{
-		"code":               code,
+		"code":                code,
 		"watchInstallationId": watchInstallationID,
 	}
 	status, body, err := postJSON(client, joinURL(baseURL, "/v1/watch/pairings/claim"), "", payload, &resp)
@@ -542,7 +762,7 @@ func postJSON(client *http.Client, requestURL, bearer string, payload any, out a
 		return 0, nil, err
 	}
 
-	if out != nil && len(bytes.TrimSpace(resBody)) > 0 {
+	if out != nil && res.StatusCode >= 200 && res.StatusCode < 300 && len(bytes.TrimSpace(resBody)) > 0 {
 		if err := json.Unmarshal(resBody, out); err != nil {
 			return res.StatusCode, resBody, err
 		}
@@ -556,7 +776,7 @@ func getJSON(client *http.Client, requestURL, bearer string, out any) (int, []by
 	if err != nil {
 		return status, body, err
 	}
-	if out != nil && len(bytes.TrimSpace(body)) > 0 {
+	if out != nil && status >= 200 && status < 300 && len(bytes.TrimSpace(body)) > 0 {
 		if err := json.Unmarshal(body, out); err != nil {
 			return status, body, err
 		}
@@ -585,6 +805,26 @@ func getRequest(client *http.Client, requestURL, bearer string) (int, []byte, er
 	return res.StatusCode, resBody, nil
 }
 
+func deleteRequest(client *http.Client, requestURL, bearer string) (int, []byte, error) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodDelete, requestURL, nil)
+	if err != nil {
+		return 0, nil, err
+	}
+	if strings.TrimSpace(bearer) != "" {
+		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(bearer))
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer res.Body.Close()
+	resBody, err := io.ReadAll(res.Body)
+	if err != nil {
+		return 0, nil, err
+	}
+	return res.StatusCode, resBody, nil
+}
+
 func resolveAppPaths() (appPaths, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -600,10 +840,12 @@ func resolveAppPaths() (appPaths, error) {
 		InstalledHookPath:     filepath.Join(installBinDir, "taphaptic-hook"),
 		InstalledCtlPath:      filepath.Join(installBinDir, "taphapticctl"),
 		ClaudeRoot:            filepath.Join(homeDir, ".claude"),
+		CodexRoot:             filepath.Join(homeDir, ".codex"),
 		APIBaseURLFile:        filepath.Join(installRoot, "api-base-url"),
 		InstallationTokenFile: filepath.Join(installRoot, "installation-token"),
 		InstallationIDFile:    filepath.Join(installRoot, "installation-id"),
-		ClaudeTokenFile:       filepath.Join(installRoot, "claude-session-token"),
+		ProducerTokenFile:     filepath.Join(installRoot, "producer-token"),
+		LegacyClaudeTokenFile: filepath.Join(installRoot, "claude-session-token"),
 	}, nil
 }
 
@@ -673,7 +915,7 @@ func verifyCodeSignature(path string) error {
 }
 
 func installHookWrapper(destination, ctlBinaryPath string) error {
-	hookScript := "#!/bin/sh\n\nset -eu\n\naction=\"${1:-}\"\nexec " + strconv.Quote(ctlBinaryPath) + " emit --action \"$action\"\n"
+	hookScript := "#!/bin/sh\n\nset -eu\n\nsource=\"${1:-claude-code}\"\naction=\"${2:-}\"\nexec " + strconv.Quote(ctlBinaryPath) + " emit --source \"$source\" --action \"$action\"\n"
 	if err := writeFileAtomic(destination, []byte(hookScript), 0o755); err != nil {
 		return err
 	}
@@ -681,11 +923,27 @@ func installHookWrapper(destination, ctlBinaryPath string) error {
 }
 
 func resolveSettingsPath(scope, cwd, homeDir string) (string, error) {
+	return resolveProviderConfigPath("claude", scope, cwd, homeDir)
+}
+
+func resolveProviderConfigPath(provider, scope, cwd, homeDir string) (string, error) {
+	var directoryName, fileName string
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "claude", "claude-code":
+		directoryName = ".claude"
+		fileName = "settings.json"
+	case "codex":
+		directoryName = ".codex"
+		fileName = "hooks.json"
+	default:
+		return "", fmt.Errorf("unsupported provider: %s", provider)
+	}
+
 	switch strings.TrimSpace(scope) {
 	case "user":
-		return filepath.Join(homeDir, ".claude", "settings.json"), nil
+		return filepath.Join(homeDir, directoryName, fileName), nil
 	case "project":
-		return filepath.Join(cwd, ".claude", "settings.json"), nil
+		return filepath.Join(cwd, directoryName, fileName), nil
 	default:
 		return "", fmt.Errorf("unsupported scope: %s (use user or project)", scope)
 	}
@@ -719,6 +977,157 @@ func patchSettingsAtPath(settingsPath string, withNotifications bool) error {
 	return writeFileAtomic(settingsPath, encoded, 0o600)
 }
 
+func patchCodexHooksAtPath(hooksPath string) error {
+	if err := ensureDir(filepath.Dir(hooksPath), 0o755); err != nil {
+		return err
+	}
+
+	config := map[string]any{}
+	if raw, err := os.ReadFile(hooksPath); err == nil {
+		if len(bytes.TrimSpace(raw)) > 0 {
+			if err := json.Unmarshal(raw, &config); err != nil {
+				return fmt.Errorf("invalid JSON in %s: %w", hooksPath, err)
+			}
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	if err := mergeCodexHooks(config); err != nil {
+		return err
+	}
+	encoded, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+	return writeFileAtomic(hooksPath, append(encoded, '\n'), 0o600)
+}
+
+func mergeCodexHooks(config map[string]any) error {
+	hooksConfig := map[string]any{}
+	if existingHooks, ok := config["hooks"]; ok && existingHooks != nil {
+		casted, ok := existingHooks.(map[string]any)
+		if !ok {
+			return errors.New("Codex hooks key 'hooks' must be an object")
+		}
+		hooksConfig = casted
+	}
+
+	commands := []struct {
+		event   string
+		matcher string
+		action  string
+	}{
+		{event: "Stop", matcher: "*", action: "stop"},
+		{event: "SubagentStop", matcher: "*", action: "subagent_stop"},
+		{event: "PermissionRequest", matcher: "*", action: "permission_request"},
+	}
+	for _, item := range commands {
+		entries, err := ensureHookEntries(hooksConfig, item.event)
+		if err != nil {
+			return fmt.Errorf("Codex %w", err)
+		}
+		command := `/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" codex ` + item.action
+		hooksConfig[item.event] = addCommand(entries, item.matcher, command)
+	}
+
+	if _, ok := config["description"]; !ok {
+		config["description"] = "Local lifecycle hooks, including Taphaptic Apple Watch notifications."
+	}
+	config["hooks"] = hooksConfig
+	return nil
+}
+
+func removeTaphapticHooksAtPath(path string) error {
+	raw, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	config := map[string]any{}
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(raw, &config); err != nil {
+		return fmt.Errorf("invalid JSON in %s: %w", path, err)
+	}
+	hooksAny, ok := config["hooks"]
+	if !ok {
+		return nil
+	}
+	hooksConfig, ok := hooksAny.(map[string]any)
+	if !ok {
+		return fmt.Errorf("hooks key in %s must be an object", path)
+	}
+
+	for event, entriesAny := range hooksConfig {
+		entries, ok := entriesAny.([]any)
+		if !ok {
+			continue
+		}
+		cleaned := removeTaphapticEntries(entries)
+		if len(cleaned) == 0 {
+			delete(hooksConfig, event)
+		} else {
+			hooksConfig[event] = cleaned
+		}
+	}
+	if len(hooksConfig) == 0 {
+		delete(config, "hooks")
+	} else {
+		config["hooks"] = hooksConfig
+	}
+
+	encoded, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+	return writeFileAtomic(path, append(encoded, '\n'), 0o600)
+}
+
+func removeTaphapticEntries(entries []any) []any {
+	filtered := make([]any, 0, len(entries))
+	for _, entryAny := range entries {
+		entry, ok := entryAny.(map[string]any)
+		if !ok {
+			filtered = append(filtered, entryAny)
+			continue
+		}
+		hooksAny, ok := entry["hooks"]
+		if !ok {
+			filtered = append(filtered, entry)
+			continue
+		}
+		handlers, ok := hooksAny.([]any)
+		if !ok {
+			filtered = append(filtered, entry)
+			continue
+		}
+		cleanedHandlers := make([]any, 0, len(handlers))
+		for _, handlerAny := range handlers {
+			handler, ok := handlerAny.(map[string]any)
+			if !ok {
+				cleanedHandlers = append(cleanedHandlers, handlerAny)
+				continue
+			}
+			command, _ := handler["command"].(string)
+			if strings.Contains(strings.ToLower(command), "taphaptic-hook") {
+				continue
+			}
+			cleanedHandlers = append(cleanedHandlers, handler)
+		}
+		if len(cleanedHandlers) == 0 {
+			continue
+		}
+		copied := cloneMap(entry)
+		copied["hooks"] = cleanedHandlers
+		filtered = append(filtered, copied)
+	}
+	return filtered
+}
+
 func mergeClaudeHooks(config map[string]any, withNotifications bool) error {
 	hooksConfig := map[string]any{}
 	if existingHooks, ok := config["hooks"]; ok && existingHooks != nil {
@@ -734,7 +1143,7 @@ func mergeClaudeHooks(config map[string]any, withNotifications bool) error {
 		return err
 	}
 	stopEntries = pruneLegacyEntries(stopEntries)
-	stopEntries = addCommand(stopEntries, "*", `/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" stop`)
+	stopEntries = addCommand(stopEntries, "*", `/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" claude-code stop`)
 	hooksConfig["Stop"] = stopEntries
 
 	subagentEntries, err := ensureHookEntries(hooksConfig, "SubagentStop")
@@ -742,7 +1151,7 @@ func mergeClaudeHooks(config map[string]any, withNotifications bool) error {
 		return err
 	}
 	subagentEntries = pruneLegacyEntries(subagentEntries)
-	subagentEntries = addCommand(subagentEntries, "*", `/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" subagent_stop`)
+	subagentEntries = addCommand(subagentEntries, "*", `/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" claude-code subagent_stop`)
 	hooksConfig["SubagentStop"] = subagentEntries
 
 	if withNotifications {
@@ -751,8 +1160,8 @@ func mergeClaudeHooks(config map[string]any, withNotifications bool) error {
 			return err
 		}
 		notificationEntries = pruneLegacyEntries(notificationEntries)
-		notificationEntries = addCommand(notificationEntries, "permission_prompt", `/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" permission_prompt`)
-		notificationEntries = addCommand(notificationEntries, "idle_prompt", `/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" idle_prompt`)
+		notificationEntries = addCommand(notificationEntries, "permission_prompt", `/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" claude-code permission_prompt`)
+		notificationEntries = addCommand(notificationEntries, "idle_prompt", `/bin/sh "${HOME}/Library/Application Support/Taphaptic/bin/taphaptic-hook" claude-code idle_prompt`)
 		hooksConfig["Notification"] = notificationEntries
 	}
 
@@ -820,7 +1229,7 @@ func pruneLegacyEntries(entries []any) []any {
 func shouldDropLegacyHook(command string) bool {
 	normalized := strings.ToLower(command)
 	if strings.Contains(normalized, "taphaptic-hook") {
-		return false
+		return true
 	}
 	return strings.Contains(normalized, "/library/application support/") &&
 		strings.Contains(normalized, "/bin/") &&
@@ -872,52 +1281,126 @@ func addCommand(entries []any, matcher, command string) []any {
 }
 
 func eventForAction(action string) (eventPayload, error) {
-	switch strings.TrimSpace(action) {
-	case "stop", "completed":
-		return eventPayload{
-			Type:   "completed",
-			Source: "claude-code",
-			Title:  "Claude Code completed",
-			Body:   "AGENT COMPLETED A TASK",
-		}, nil
-	case "subagent_stop", "subagent_completed":
-		return eventPayload{
-			Type:   "subagent_completed",
-			Source: "claude-code",
-			Title:  "Claude subagent completed",
-			Body:   "Claude Code subagent finished background work",
-		}, nil
-	case "failed":
-		return eventPayload{
-			Type:   "failed",
-			Source: "claude-code",
-			Title:  "Claude Code failed",
-			Body:   "Claude Code reported a failure",
-		}, nil
-	case "permission_prompt":
-		return eventPayload{
-			Type:   "attention",
-			Source: "claude-code",
-			Title:  "Claude Code needs permission",
-			Body:   "Claude Code is waiting for permission",
-		}, nil
-	case "idle_prompt":
-		return eventPayload{
-			Type:   "attention",
-			Source: "claude-code",
-			Title:  "Claude Code is waiting",
-			Body:   "Claude Code is idle and waiting for input",
-		}, nil
-	case "attention":
-		return eventPayload{
-			Type:   "attention",
-			Source: "claude-code",
-			Title:  "Claude Code needs attention",
-			Body:   "Claude Code needs attention",
-		}, nil
-	default:
-		return eventPayload{}, fmt.Errorf("usage: taphapticctl emit --action <stop|subagent_stop|permission_prompt|idle_prompt|completed|subagent_completed|failed|attention>")
+	return eventForSourceAction("claude-code", action, nil)
+}
+
+func eventForSourceAction(source, action string, hookFields map[string]any) (eventPayload, error) {
+	source, err := normalizedEventSource(source)
+	if err != nil {
+		return eventPayload{}, err
 	}
+	normalizedAction := strings.ToLower(strings.TrimSpace(action))
+	payload := eventPayload{
+		SchemaVersion: 1,
+		OccurredAt:    time.Now().UTC(),
+		Source:        source,
+		SourceEvent:   sourceEventName(normalizedAction),
+	}
+
+	switch normalizedAction {
+	case "stop", "completed":
+		payload.Type = "completed"
+		payload.Title = sourceDisplayName(source) + " completed"
+		payload.Body = "Agent completed a task"
+	case "subagent_stop", "subagent_completed":
+		payload.Type = "subagent_completed"
+		payload.Title = sourceDisplayName(source) + " subagent completed"
+		payload.Body = "An agent finished background work"
+	case "failed":
+		payload.Type = "failed"
+		payload.Title = sourceDisplayName(source) + " failed"
+		payload.Body = "Agent reported a failure"
+	case "permission_request", "permission_prompt":
+		payload.Type = "attention"
+		payload.Title = sourceDisplayName(source) + " needs permission"
+		payload.Body = "Agent is waiting for permission"
+	case "idle_prompt":
+		payload.Type = "attention"
+		payload.Title = sourceDisplayName(source) + " is waiting"
+		payload.Body = "Agent is idle and waiting for input"
+	case "attention":
+		payload.Type = "attention"
+		payload.Title = sourceDisplayName(source) + " needs attention"
+		payload.Body = "Agent needs attention"
+	default:
+		return eventPayload{}, fmt.Errorf("usage: taphapticctl emit --source <claude-code|codex> --action <stop|subagent_stop|permission_request|permission_prompt|idle_prompt|completed|subagent_completed|failed|attention>")
+	}
+	payload.DedupeKey = eventDedupeKey(payload.Source, payload.SourceEvent, hookFields)
+	return payload, nil
+}
+
+func normalizedEventSource(raw string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "claude", "claude-code":
+		return "claude-code", nil
+	case "codex":
+		return "codex", nil
+	default:
+		return "", fmt.Errorf("unsupported event source %q (use claude-code or codex)", raw)
+	}
+}
+
+func sourceDisplayName(source string) string {
+	if source == "codex" {
+		return "Codex"
+	}
+	return "Claude Code"
+}
+
+func sourceEventName(action string) string {
+	switch action {
+	case "stop", "completed":
+		return "Stop"
+	case "subagent_stop", "subagent_completed":
+		return "SubagentStop"
+	case "permission_request":
+		return "PermissionRequest"
+	case "permission_prompt", "idle_prompt":
+		return "Notification"
+	case "failed":
+		return "Failed"
+	case "attention":
+		return "Attention"
+	default:
+		return action
+	}
+}
+
+func eventDedupeKey(source, eventName string, fields map[string]any) string {
+	if len(fields) == 0 {
+		return ""
+	}
+	sessionID := stringField(fields, "session_id")
+	turnID := stringField(fields, "turn_id")
+	subagentID := stringField(fields, "agent_id")
+	if sessionID == "" && turnID == "" && subagentID == "" {
+		return ""
+	}
+	return strings.Join([]string{source, sessionID, turnID, subagentID, eventName}, ":")
+}
+
+func stringField(fields map[string]any, key string) string {
+	value, _ := fields[key].(string)
+	return strings.TrimSpace(value)
+}
+
+func readHookFields(stdin *os.File) map[string]any {
+	if stdin == nil {
+		return nil
+	}
+	info, err := stdin.Stat()
+	if err != nil || info.Mode()&os.ModeCharDevice != 0 {
+		return nil
+	}
+	raw, err := io.ReadAll(io.LimitReader(stdin, 1024*1024))
+	if err != nil || len(bytes.TrimSpace(raw)) == 0 {
+		return nil
+	}
+	fields := map[string]any{}
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil
+	}
+	return fields
 }
 
 func printPairingCode(code string) {

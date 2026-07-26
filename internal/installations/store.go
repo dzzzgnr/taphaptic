@@ -151,6 +151,28 @@ func (s *Store) TouchToken(token string) bool {
 	return true
 }
 
+func (s *Store) RemoveByID(installationID string) error {
+	installationID = strings.TrimSpace(installationID)
+	if installationID == "" {
+		return nil
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	installation, ok := s.byID[installationID]
+	if !ok {
+		return nil
+	}
+	previous := s.cloneLocked()
+	delete(s.byID, installationID)
+	delete(s.byToken, installation.Token)
+	if err := s.persistLocked(); err != nil {
+		s.restoreLocked(previous)
+		return err
+	}
+	return nil
+}
+
 func (s *Store) cloneLocked() *Store {
 	clone := newStore(s.statePath)
 	for key, value := range s.byID {

@@ -12,7 +12,8 @@
 ./scripts/bootstrap-watch.sh
 ```
 
-This runs preflight checks, starts the API, and installs Claude hooks.
+This runs preflight checks, starts the local API, and installs Claude Code and
+Codex hooks.
 
 ## Physical-watch release gate
 
@@ -48,6 +49,7 @@ go test ./... -count=1
 
 ## Scope guardrails
 
-- Local-only architecture is the default.
-- Keep watch + local API pairing flow stable.
-- Do not reintroduce hosted/cloud defaults without explicit maintainer approval.
+- The production architecture is an HTTPS relay with direct APNs delivery.
+- Keep the local Bonjour/HTTP mode working as a development and self-hosted fallback.
+- Never commit APNs keys, App Store Connect keys, bearer tokens, or provisioning profiles.
+- Preserve unrelated Claude Code and Codex hook configuration exactly.

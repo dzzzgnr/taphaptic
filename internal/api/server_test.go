@@ -2,16 +2,28 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"taphaptic/internal/channels"
+	"taphaptic/internal/devices"
 	"taphaptic/internal/events"
 	"taphaptic/internal/installations"
 	"taphaptic/internal/watchpairings"
 )
+
+type recordingPushSender struct {
+	sent []events.Event
+}
+
+func (s *recordingPushSender) Send(_ context.Context, _ devices.Device, event events.Event) error {
+	s.sent = append(s.sent, event)
+	return nil
+}
 
 func TestHealthzDoesNotRequireAuth(t *testing.T) {
 	handler := newTestHandler()
@@ -157,10 +169,87 @@ func TestWatchClaimRejectsNonNumericCode(t *testing.T) {
 	}
 }
 
+func TestRegisteredWatchReceivesOnePushForDeduplicatedEvent(t *testing.T) {
+	sender := &recordingPushSender{}
+	handler := NewHandler(Config{
+		Store:             events.NewStore(64),
+		ChannelStore:      channels.NewStore(),
+		InstallationStore: installations.NewStore(),
+		WatchPairingStore: watchpairings.NewStore(),
+		DeviceStore:       devices.NewStore(),
+		PushSender:        sender,
+		APNSTopic:         "com.example.taphaptic.watch",
+		APNSEnvironment:   "development",
+	})
+
+	installation := createInstallation(t, handler, "")
+	watchCode := createWatchCode(t, handler, installation.InstallationToken)
+	claim := claimWatchCode(t, handler, watchCode.Code, "watch-a")
+
+	registerBody := `{"watchInstallationId":"watch-a","pushToken":"` +
+		strings.Repeat("ab", 32) + `"}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/watch/devices", bytes.NewBufferString(registerBody))
+	request.Header.Set("Authorization", "Bearer "+claim.WatchSessionToken)
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.Routes().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("register device returned %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	payload := `{"schemaVersion":1,"type":"completed","source":"codex","sourceEvent":"Stop","dedupeKey":"codex:session-a:turn-a:Stop"}`
+	createEvent(t, handler, installation.ClaudeSessionToken, payload)
+	createEvent(t, handler, installation.ClaudeSessionToken, payload)
+
+	if len(sender.sent) != 1 {
+		t.Fatalf("push count=%d want 1", len(sender.sent))
+	}
+	if sender.sent[0].Source != "codex" {
+		t.Fatalf("push source=%q want codex", sender.sent[0].Source)
+	}
+	eventsForWatch := getEvents(t, handler, claim.WatchSessionToken, 0)
+	if len(eventsForWatch.Events) != 1 {
+		t.Fatalf("event count=%d want 1", len(eventsForWatch.Events))
+	}
+}
+
+func TestDeleteInstallationRevokesAllScopedTokensAndEvents(t *testing.T) {
+	handler := newTestHandler()
+	installation := createInstallation(t, handler, "")
+	watchCode := createWatchCode(t, handler, installation.InstallationToken)
+	claim := claimWatchCode(t, handler, watchCode.Code, "watch-delete")
+	createEvent(t, handler, installation.ClaudeSessionToken, `{"type":"completed"}`)
+
+	request := httptest.NewRequest(http.MethodDelete, "/v1/installations/current", nil)
+	request.Header.Set("Authorization", "Bearer "+installation.InstallationToken)
+	recorder := httptest.NewRecorder()
+	handler.Routes().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("delete installation returned %d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	eventRequest := httptest.NewRequest(http.MethodPost, "/v1/events", bytes.NewBufferString(`{"type":"completed"}`))
+	eventRequest.Header.Set("Authorization", "Bearer "+installation.ClaudeSessionToken)
+	eventRequest.Header.Set("Content-Type", "application/json")
+	eventRecorder := httptest.NewRecorder()
+	handler.Routes().ServeHTTP(eventRecorder, eventRequest)
+	if eventRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("old producer token returned %d want 401", eventRecorder.Code)
+	}
+
+	readRequest := httptest.NewRequest(http.MethodGet, "/v1/events?since=0", nil)
+	readRequest.Header.Set("Authorization", "Bearer "+claim.WatchSessionToken)
+	readRecorder := httptest.NewRecorder()
+	handler.Routes().ServeHTTP(readRecorder, readRequest)
+	if readRecorder.Code != http.StatusUnauthorized {
+		t.Fatalf("old watch token returned %d want 401", readRecorder.Code)
+	}
+}
+
 type installationResponse struct {
-	InstallationToken string `json:"installationToken"`
-	InstallationID    string `json:"installationId"`
-	ChannelID         string `json:"channelId"`
+	InstallationToken  string `json:"installationToken"`
+	InstallationID     string `json:"installationId"`
+	ChannelID          string `json:"channelId"`
 	ClaudeSessionToken string `json:"claudeSessionToken"`
 }
 
