@@ -8,6 +8,8 @@ api_base_url="${TAPHAPTIC_API_BASE_URL:-}"
 team_id="${APPLE_TEAM_ID:-X53HKYK69N}"
 marketing_version="${MARKETING_VERSION:-1.0.0}"
 build_number="${CURRENT_PROJECT_VERSION:-1}"
+code_sign_identity="${TAPHAPTIC_CODE_SIGN_IDENTITY:-}"
+provisioning_profile_specifier="${TAPHAPTIC_PROVISIONING_PROFILE_SPECIFIER:-}"
 
 case "$api_base_url" in
   https://*)
@@ -22,6 +24,16 @@ xcode_major="$(xcodebuild -version | awk 'NR == 1 { split($2, parts, "."); print
 if [ -z "$xcode_major" ] || [ "$xcode_major" -lt 26 ]; then
   printf '%s\n' "Xcode 26 or later is required." >&2
   exit 1
+fi
+
+if [ -n "$code_sign_identity" ] && [ -z "$provisioning_profile_specifier" ]; then
+  printf '%s\n' "TAPHAPTIC_PROVISIONING_PROFILE_SPECIFIER is required when TAPHAPTIC_CODE_SIGN_IDENTITY is set." >&2
+  exit 64
+fi
+
+if [ -z "$code_sign_identity" ] && [ -n "$provisioning_profile_specifier" ]; then
+  printf '%s\n' "TAPHAPTIC_CODE_SIGN_IDENTITY is required when TAPHAPTIC_PROVISIONING_PROFILE_SPECIFIER is set." >&2
+  exit 64
 fi
 
 destination_report="$(
@@ -53,6 +65,14 @@ if [ -n "${ASC_KEY_PATH:-}" ] && [ -n "${ASC_KEY_ID:-}" ] && [ -n "${ASC_ISSUER_
     -authenticationKeyPath "$ASC_KEY_PATH" \
     -authenticationKeyID "$ASC_KEY_ID" \
     -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+fi
+
+if [ -n "$code_sign_identity" ]; then
+  set -- "$@" \
+    CODE_SIGN_STYLE=Manual \
+    "CODE_SIGN_IDENTITY=$code_sign_identity" \
+    "PROVISIONING_PROFILE_SPECIFIER=$provisioning_profile_specifier" \
+    APS_ENVIRONMENT=production
 fi
 
 cd "$repo_root"
