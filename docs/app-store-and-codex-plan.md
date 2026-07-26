@@ -101,11 +101,20 @@ goal of normal Apple Watch notifications while the app is closed.
 - The watchOS 26.5 simulator pairing flow, notification permission, Keychain
   persistence across relaunch, and local event delivery have been exercised on
   a Series 11 46 mm simulator; four 416 x 496 screenshots are ready.
+- Apple Developer has the explicit push-enabled App ID
+  `com.dzzzgnr.taphaptic.watch` and team-scoped APNs key `FJ4N6FV4DG`.
+- App Store Connect has the `Taphaptic for Watch` app record (Apple ID
+  `6794844021`), complete version metadata, a published privacy disclosure, a
+  4+ age rating, free pricing in all 175 countries and regions, public
+  distribution, and manual release.
 - `render.yaml` defines a Frankfurt production relay with HTTPS, health checks,
-  an encrypted persistent disk and daily snapshots. Its final sync awaits the
-  hosting login and a production APNs provider key.
-- A signed device archive and App Store Connect upload await Apple account
-  reauthentication plus creation of the push-enabled App ID/profile.
+  an encrypted persistent disk and daily snapshots. Its final sync awaits
+  verification of the Render account email before the APNs secrets can be
+  entered.
+- The Apple Watch screenshots are ready locally. Uploading them and the
+  distribution certificate CSR currently await Chrome extension file-upload
+  access. A signed device archive also awaits the production relay URL and an
+  Apple Distribution identity/profile.
 
 ## Product contract
 

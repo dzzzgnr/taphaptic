@@ -3,7 +3,8 @@
 ## Accounts and service
 
 - [ ] Apple Developer agreements are current.
-- [ ] Bundle ID `com.dzzzgnr.taphaptic.watch` exists with Push Notifications.
+- [x] Bundle ID `com.dzzzgnr.taphaptic.watch` exists with Push Notifications.
+- [x] Team-scoped sandbox and production APNs key `FJ4N6FV4DG` exists.
 - [ ] Production APNs key is mounted from the relay secret manager.
 - [ ] Production HTTPS relay has persistent encrypted storage, backups, health
       monitoring, and alerting.
@@ -42,13 +43,16 @@ go vet ./...
 
 ## App Store Connect
 
-- [ ] Version metadata and independence disclaimer entered.
-- [ ] Privacy/support URLs are publicly reachable.
-- [ ] App Privacy matches `docs/app-store-metadata.md`.
-- [ ] Age rating completed.
+- [x] App record `Taphaptic for Watch` exists (Apple ID `6794844021`).
+- [x] Version metadata and independence disclaimer entered.
+- [x] Privacy/support URLs are publicly reachable.
+- [x] App Privacy matches `docs/app-store-metadata.md` and is published.
+- [x] Age rating completed (4+).
+- [x] Free pricing and worldwide availability are configured.
+- [x] Public distribution is selected; Mac and Vision Pro availability is off.
 - [ ] Export compliance confirms only exempt system HTTPS/APNs cryptography.
 - [ ] Apple Watch screenshots uploaded.
 - [ ] Review notes include a live code and exact test steps.
 - [ ] Internal TestFlight pass completed on a clean watch.
 - [ ] External TestFlight feedback resolved.
-- [ ] Manual release selected for version 1.0.
+- [x] Manual release selected for version 1.0.
