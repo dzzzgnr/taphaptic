@@ -2,14 +2,16 @@
 
 ## Identity
 
-- Name: `Taphaptic`
+- Name: `Taphaptic for Watch`
 - Subtitle: `Agent alerts on your wrist`
 - Primary category: Developer Tools
 - Secondary category: Productivity
+- Apple ID: `6794844021`
 - Bundle ID: `com.dzzzgnr.taphaptic.watch`
 - SKU: `taphaptic-watch-1`
 - Version: `1.0.0`
 - Minimum OS: watchOS 11
+- Distribution: public, free, all 175 App Store countries and regions
 
 ## Promotional text
 
