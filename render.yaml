@@ -9,7 +9,6 @@ services:
     numInstances: 1
     autoDeployTrigger: checksPass
     healthCheckPath: /healthz
-    maxShutdownDelaySeconds: 30
     disk:
       name: taphaptic-data
       mountPath: /data
