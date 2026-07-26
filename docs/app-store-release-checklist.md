@@ -5,6 +5,10 @@
 - [ ] Apple Developer agreements are current.
 - [x] Bundle ID `com.dzzzgnr.taphaptic.watch` exists with Push Notifications.
 - [x] Team-scoped sandbox and production APNs key `FJ4N6FV4DG` exists.
+- [x] Apple Distribution certificate and App Store profile exist for the bundle
+      ID, with the private key installed in the local Keychain.
+- [x] Dedicated App Store Connect team key `Z4Z562KGS3` is stored outside the
+      repository for provisioning and upload.
 - [ ] Production APNs key is mounted from the relay secret manager.
 - [ ] Production HTTPS relay has persistent encrypted storage, backups, health
       monitoring, and alerting.
@@ -51,7 +55,7 @@ go vet ./...
 - [x] Free pricing and worldwide availability are configured.
 - [x] Public distribution is selected; Mac and Vision Pro availability is off.
 - [ ] Export compliance confirms only exempt system HTTPS/APNs cryptography.
-- [ ] Apple Watch screenshots uploaded.
+- [x] Four Apple Watch Series 11 screenshots uploaded and processed.
 - [ ] Review notes include a live code and exact test steps.
 - [ ] Internal TestFlight pass completed on a clean watch.
 - [ ] External TestFlight feedback resolved.

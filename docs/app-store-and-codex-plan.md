@@ -106,15 +106,18 @@ goal of normal Apple Watch notifications while the app is closed.
 - App Store Connect has the `Taphaptic for Watch` app record (Apple ID
   `6794844021`), complete version metadata, a published privacy disclosure, a
   4+ age rating, free pricing in all 175 countries and regions, public
-  distribution, and manual release.
+  distribution, manual release, and four processed Series 11 screenshots.
+- A dedicated App Store Connect team API key has created an Apple Distribution
+  certificate and `IOS_APP_STORE` provisioning profile. The matching private
+  key and profile are installed locally and kept outside the repository.
 - `render.yaml` defines a Frankfurt production relay with HTTPS, health checks,
   an encrypted persistent disk and daily snapshots. Its final sync awaits
   verification of the Render account email before the APNs secrets can be
   entered.
-- The Apple Watch screenshots are ready locally. Uploading them and the
-  distribution certificate CSR currently await Chrome extension file-upload
-  access. A signed device archive also awaits the production relay URL and an
-  Apple Distribution identity/profile.
+- A development-signed generic-device archive succeeds. The production signing
+  chain reaches `codesign` with the correct App Store profile and production
+  APNs entitlement; completing the local Keychain authorization requires the
+  Mac to be unlocked. The final archive also awaits the production relay URL.
 
 ## Product contract
 

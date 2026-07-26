@@ -89,5 +89,5 @@ account or purchase is required.
 - Screens to capture: pairing, pending/connected, Claude completion, Codex
   permission request, notification settings/test confirmation.
 - App icon is generated from `watch-app/taphaptic.icon`.
-- Ready-to-upload 416 x 496 simulator captures are stored in
-  `release/screenshots/`.
+- Four 416 x 496 Series 11 simulator captures from `release/screenshots/` are
+  uploaded and processed successfully in App Store Connect.
