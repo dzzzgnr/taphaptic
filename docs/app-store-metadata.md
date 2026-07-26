@@ -48,9 +48,9 @@ and Codex are trademarks of OpenAI.
 
 ## URLs
 
-- Support: `https://github.com/dzzzgnr/taphaptic/blob/main/docs/support.md`
-- Privacy policy: `https://github.com/dzzzgnr/taphaptic/blob/main/docs/privacy-policy.md`
-- Marketing: `https://github.com/dzzzgnr/taphaptic`
+- Support: `https://dzzzgnr.github.io/taphaptic/support.html`
+- Privacy policy: `https://dzzzgnr.github.io/taphaptic/privacy-policy.html`
+- Marketing: `https://dzzzgnr.github.io/taphaptic/`
 
 ## App Privacy answers
 
