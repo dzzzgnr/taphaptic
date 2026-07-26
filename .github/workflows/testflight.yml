@@ -29,12 +29,18 @@ jobs:
       - name: Install signing certificate
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           certificate_path="$RUNNER_TEMP/distribution.p12"
           keychain_path="$RUNNER_TEMP/taphaptic-signing.keychain-db"
+          profile_path="$RUNNER_TEMP/taphaptic.mobileprovision"
+          profile_install_dir="$HOME/Library/MobileDevice/Provisioning Profiles"
           printf '%s' "$BUILD_CERTIFICATE_BASE64" | base64 --decode > "$certificate_path"
+          printf '%s' "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode > "$profile_path"
+          mkdir -p "$profile_install_dir"
+          cp "$profile_path" "$profile_install_dir/2a1d66de-8871-4c11-9e4b-739641bd24fa.mobileprovision"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
           security set-keychain-settings -lut 21600 "$keychain_path"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
@@ -58,6 +64,8 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           TAPHAPTIC_API_BASE_URL: ${{ secrets.TAPHAPTIC_API_BASE_URL }}
           CURRENT_PROJECT_VERSION: ${{ inputs.build_number }}
+          TAPHAPTIC_CODE_SIGN_IDENTITY: Apple Distribution
+          TAPHAPTIC_PROVISIONING_PROFILE_SPECIFIER: Taphaptic App Store 1.0
         run: ./scripts/archive-watch-app.sh
 
       - name: Upload to TestFlight

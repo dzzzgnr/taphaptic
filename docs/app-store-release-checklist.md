@@ -28,9 +28,9 @@ go vet ./...
 ./scripts/build-watch-app.sh
 ```
 
-- [ ] Release archive succeeds with Xcode 26+ and watchOS 26+ SDK.
-- [ ] Archive contains `aps-environment=production`.
-- [ ] Archive contains `PrivacyInfo.xcprivacy`.
+- [x] Release archive succeeds with Xcode 26+ and watchOS 26+ SDK.
+- [x] Archive contains `aps-environment=production`.
+- [x] Archive contains `PrivacyInfo.xcprivacy`.
 - [ ] Organizer/App Store Connect validation succeeds.
 
 ## Physical watch gates
